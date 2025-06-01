@@ -14,7 +14,7 @@ use 5.016;
 use strict;
 use warnings;
 
-use SBO::Lib qw/ :const :config get_arch get_readme_contents get_inst_names get_installed_packages get_sbo_build_number get_sbo_version get_user_group user_group_exist $conf_file get_sbo_location get_all_available get_build_queue get_full_reverse get_reverse_reqs on_blacklist @concluded @reverse_concluded slurp update_tree uniq lint_sbo_config usage_error error_code /;
+use SBO::Lib qw/ :const :config get_arch get_readme_contents get_inst_names get_installed_packages get_sbo_build_number get_sbo_version get_user_group user_group_exist $conf_file get_sbo_location get_all_available get_build_queue get_full_reverse get_reverse_reqs on_blacklist @concluded @reverse_concluded slurp update_tree uniq lint_sbo_config usage_error error_code script_error /;
 
 use Cwd;
 use File::Basename;
@@ -25,7 +25,7 @@ use Getopt::Long qw/ :config no_ignore_case_always bundling /;
 my $self = basename($0);
 
 # $full_reverse is not yet implemented; current default behavior
-my ($help, $version, $pkgdir, $sbo_archive, $jobs, $single, $full_reverse, $logdir);
+my ($help, $version, $pkgdir, $sbo_archive, $jobs, $single, $full_reverse, $logdir, $archive_rebuild);
 
 GetOptions(
 	'help|h'            => \$help,
@@ -36,6 +36,7 @@ GetOptions(
 	'single|s'          => \$single,
 	'jobs|j=s'          => \$jobs,
 	'log-dir|l=s'       => \$logdir,
+	'archive-rebuild'   => \$archive_rebuild,
 );
 
 $config{SBO_ARCHIVE} = defined $sbo_archive ? $sbo_archive : $config{SBO_ARCHIVE};
@@ -74,6 +75,8 @@ Options:
     reinstall saved packages from this path.
   --single|-s:
     do not test reverse dependencies.
+  --archive-rebuild:
+    replace all outdated packages in the archive.
 
 By default, sbotest builds any requested scripts and the first
 level of reverse dependencies, calling /usr/bin/sbopkglint for
@@ -103,6 +106,37 @@ sub clean_packages {
 		}
 		exit _ERR_SCRIPT unless system('/sbin/removepkg', '--terse', $sbo) == 0;
 	}
+}
+
+# find and remove out-of-date archived packages, provided they
+# are not already installed
+sub find_outdated {
+	script_error("find_outdated requires two arguments.") unless @_ == 2;
+	my ($sbo_archive, $inst_sbos) = @_;
+	my @outdated;
+	my $temp_cwd = getcwd();
+	if (-d $sbo_archive) {
+		chdir $sbo_archive;
+	} else {
+		return();
+	}
+	opendir(my $dh, $sbo_archive);
+	while (my $ls = readdir $dh) {
+		next if $ls eq "." or $ls eq "..";
+		next unless -f $ls;
+		my ($pkg_name, $pkg_version, $pkg_build) = get_package_info($ls);
+		next if grep { /^$pkg_name$/ } @$inst_sbos;
+		my $pkg_location = get_sbo_location($pkg_name);
+		my $sbo_version = get_sbo_version($pkg_location);
+		my $sbo_build = get_sbo_build_number($pkg_location);
+		next unless defined $sbo_version and defined $sbo_build;
+		next if $pkg_version eq $sbo_version and $pkg_build eq $sbo_build;
+		push @outdated, $pkg_name;
+		unlink $ls;
+	}
+	close $dh;
+	return() unless @outdated;
+	return @outdated;
 }
 
 # given a package string, returns the name, version and
@@ -137,6 +171,7 @@ sub install_archived {
 	opendir(my $dh, $sbo_archive);
 	while (my $ls = readdir $dh) {
 		next if $ls eq "." or $ls eq "..";
+		next unless -f $ls;
 		next if -f "$pkg_dir/$ls";
 		my ($pkg_name, $pkg_version, $pkg_build) = get_package_info($ls);
 		next if grep { /^$pkg_name$/ } @$inst_sbos;
@@ -145,10 +180,12 @@ sub install_archived {
 		my $pkg_location = get_sbo_location($pkg_name);
 		my $sbo_version = get_sbo_version($pkg_location);
 		my $sbo_build = get_sbo_build_number($pkg_location);
+		next unless defined $sbo_version and defined $sbo_build;
 		next unless $pkg_version eq $sbo_version;
 		next unless $pkg_build eq $sbo_build;
 		exit _ERR_SCRIPT unless system("/sbin/upgradepkg", "--reinstall", "--install-new", '--terse', $ls) == 0;
 	}
+	close $dh;
 	chdir $temp_cwd;
 }
 
@@ -181,7 +218,7 @@ usage_error("The installed version of sbotools is incompatible with sbotest; ple
 usage_error("sbotools needs to be installed.") unless -x "/usr/sbin/sboconfig";
 usage_error("sbo-maintainer-tools needs to be installed.") unless -x "/usr/bin/sbopkglint";
 usage_error("Must run as root. Exiting.") unless $< == 0;
-show_usage() unless @ARGV;
+show_usage() unless @ARGV or $archive_rebuild;
 
 my $cwd = getcwd();
 chomp(my $begin_time = `/usr/bin/date +%Y-%m-%d-%H:%M`);
@@ -194,6 +231,11 @@ my $logfile = "$config{SBO_HOME}/results/$begin_time.log";
 
 if ($config{LOCAL_OVERRIDES} ne "FALSE") {
 	usage_error("$config{LOCAL_OVERRIDES} is specified as the overrides directory, but does not exist. Exiting.") unless -d $config{LOCAL_OVERRIDES};
+}
+
+if ($archive_rebuild) {
+	usage_error("$config{SBO_ARCHIVE} does not exist; exiting.") unless -d $config{SBO_ARCHIVE};
+	$pkg_dir = $config{SBO_ARCHIVE};
 }
 
 make_path($pkg_dir);
@@ -216,6 +258,7 @@ unless ($single) {
 }
 
 FIRST: for my $sbo (@ARGV) {
+	last if $archive_rebuild;
 	my $dir = get_sbo_location($sbo);
 	chdir $dir;
 	unless (defined $dir and -d $dir) {
@@ -246,14 +289,20 @@ FIRST: for my $sbo (@ARGV) {
 	}
 }
 
+@to_test = find_outdated($config{SBO_ARCHIVE}, $inst_sbos) if $archive_rebuild;
+
 unless (@to_test) {
+	if ($archive_rebuild) {
+		say "All archived packages installed or up-to-date.";
+		exit;
+	}
 	say "No testing to do.";
-	say ("\nRequested:\n  ", join("\n  ", @ARGV));
+	say ("\nRequested:\n  ", join("\n  ", @ARGV)) unless $archive_rebuild;
 	say ("\nUnsupported:\n  ", join("\n  ", @unsupported)) if @unsupported;
 	say ("\nMissing:\n  ", join("\n  ", @missing)) if @missing;
 	exit;
 }
-@to_test = uniq(sort(@to_test));
+@to_test = uniq(sort(@to_test)) if @to_test;
 
 SECOND: for my $sbo (@to_test) {
 	my $dir = get_sbo_location($sbo);
@@ -337,7 +386,7 @@ chdir $cwd;
 
 chomp(my $end_date = `/usr/bin/date`);
 
-say ("\nRequested:\n  ", join("\n  ", @ARGV));
+say ("\nRequested:\n  ", join("\n  ", @ARGV)) if @ARGV;
 say ("\nSuccessful:\n  ", join("\n  ", @successful)) if @successful;
 say ("\nMissing:\n  ", join("\n  ", @missing)) if @missing;
 say ("\nFailed to Build:\n  ", join("\n  ", @fail_to_build)) if @fail_to_build;
@@ -349,9 +398,10 @@ unlink $logfile if -f $logfile;
 open(my $fh, '>', $logfile);
 error_code("\nNo log could be written; exiting.", _ERR_OPENFH) unless defined $fh;
 
-say {$fh} "Test began: $start_date";
-say {$fh} "Test ended: $end_date";
-say {$fh} ("\nRequested:\n  ", join("\n  ", @ARGV));
+my $label = $archive_rebuild ? "Archive update" : "Test";
+say {$fh} "$label began: $start_date";
+say {$fh} "$label ended: $end_date";
+say {$fh} ("\nRequested:\n  ", join("\n  ", @ARGV)) if @ARGV;
 say {$fh} ("\nSuccessful:\n  ", join("\n  ", @successful)) if @successful;
 say {$fh} ("\nMissing:\n  ", join("\n  ", @missing)) if @missing;
 say {$fh} ("\nFailed to Build:\n  ", join("\n  ", @fail_to_build)) if @fail_to_build;

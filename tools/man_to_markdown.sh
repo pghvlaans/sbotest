@@ -64,7 +64,7 @@ SPACES="            "
 
 # Why, yes, these lines are horrible.
 sed -i "s/     •      /\* /g" *
-sed -i "/\s.-/d" *
+sed -i "/^\s.-/d" *
 sed -i "s/\\\\\[/[/g" *
 sed -i "s/\\\\\]/]/g" *
 sed -i 's|\\\\\\$|\\|g' *

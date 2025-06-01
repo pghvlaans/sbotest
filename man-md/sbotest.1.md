@@ -25,6 +25,8 @@
     sbotest [-f|-s] [-j #|FALSE] [-akl /path|FALSE] \
             sbo_name (sbo_name)
 
+    sbotest [-al /path|FALSE] --archive-rebuild
+
 ## DISCLAIMER
 
 **sbotest** is designed and intended to run in a build-testing
@@ -62,6 +64,10 @@ saved to *SBO_HOME/test\_(timestamp).log*. Scripts that fail
 reported so that any issues can be taken care of before submitting
 scripts to **SlackBuilds.org**.
 
+The package archive can be kept current with **\--archive-rebuild**,
+which replaces all outdated packages in the archive, provided that they
+are not installed.
+
 ## OPTIONS
 
 **-h\|\--help**
@@ -71,6 +77,11 @@ Show help information.
 **-v\|\--version**
 
 Show version information.
+
+**\--archive-rebuild**
+
+Replace outdated packages in the archive, */usr/sbotest/archive* by
+default. Please note that installed packages are ignored.
 
 **-f\|\--full-reverse**
 
@@ -150,6 +161,9 @@ prior to calling [sboinstall(1)](sboinstall.1.md), provided that they:
 * Are required by the script to be tested.
 * Are not already installed.
 * Have versions and build numbers matching the local repository.
+
+The archive can be kept current by running **sbotest** with
+**\--archive-rebuild** regularly.
 
 Hints may be specified in */etc/sbotest/sbotest.hints*. Saved build
 options from **sbotools** are ignored. See [sbotools.conf(5)](sbotools.conf.5.md) and

@@ -10,6 +10,9 @@ sbotest [-h|-v]
 .P
 sbotest [-f|-s] [-j #|FALSE] [-akl /path|FALSE] \\
         sbo_name (sbo_name)
+.P
+sbotest [-al /path|FALSE] --archive-rebuild
+
 .SH DISCLAIMER
 .P
 .B
@@ -99,6 +102,12 @@ issues can be taken care of before submitting scripts to
 SlackBuilds.org\fR\
 \&.
 .P
+The package archive can be kept current with
+.B
+--archive-rebuild\fR\
+\&, which replaces all outdated packages in the archive,
+provided that they are not installed.
+.P
 .SH OPTIONS
 .P
 .B
@@ -111,6 +120,15 @@ Show help information.
 -v|--version
 .RS
 Show version information.
+.RE
+.P
+.B
+--archive-rebuild
+.RS
+Replace outdated packages in the archive,
+.I
+/usr/sbotest/archive
+by default. Please note that installed packages are ignored.
 .RE
 .P
 .B
@@ -302,6 +320,14 @@ Are not already installed.
 .IP \[bu] 3n
 Have versions and build numbers matching the local repository.
 .RE
+.P
+The archive can be kept current by running
+.B
+sbotest
+with
+.B
+--archive-rebuild
+regularly.
 .RE
 .P
 Hints may be specified in
