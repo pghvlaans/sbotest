@@ -19,6 +19,12 @@ Issues and requests are welcome; please indicate the most recent commit with the
 
     git log | head -n 1
 
+## Acknowledgments
+
+**Jacob Pipkin**, **Luke Williams** and **Andreas Guldstrand** are the original authors of **sbotools**.
+
+**B. Watson** is the author and maintainer of **[sbo-maintainer-tools](https://slackware.uk/~urchlay/repos/sbo-maintainer-tools)**.
+
 ## Disclaimer
 
 **sbotest** was designed and intended to be run in a build-testing environment, such as a virtual machine or a Docker image. Using **sbotest** on a general-purpose Slackware installation is **unsupported** and **unadvisable**.
