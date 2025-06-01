@@ -26,8 +26,9 @@ sed -i "s/#DESCRIPTION/#description/g" *
 sed -i "s/#BUGS/#bugs/g" *
 sed -i "s/#SEE\%20ALSO/#see-also/g" *
 sed -i "s/#EXIT\%20CODES/#exit-codes/g" *
+sed -i "s/#CONFIGURATION/#configuration/g" *
 sed -i "s/#ACKNOWLEDGEMENTS/#acknowledgements/g" *
-sed -i "s/#AUTHOR/#author/g" *
+sed -i 's|#AUTHOR)\\|#author)|g' *
 
 sed -i "s/^## NAME.*/## NAME/g" *
 sed -i "s/^## SYNOPSIS.*/## SYNOPSIS/g" *
@@ -37,6 +38,7 @@ sed -i "s/^## DESCRIPTION.*/## DESCRIPTION/g" *
 sed -i "s/^## BUGS.*/## BUGS/g" *
 sed -i "s/^## SEE ALSO.*/## SEE ALSO/g" *
 sed -i "s/^## EXIT CODES.*/## EXIT CODES/g" *
+sed -i "s/^## CONFIGURATION.*/## CONFIGURATION/g" *
 sed -i "s/^## ACKNOWLEDGEMENTS.*/## ACKNOWLEDGEMENTS/g" *
 sed -i "s/^## AUTHOR.*/## AUTHOR/g" *
 
@@ -56,17 +58,13 @@ sed -i "s/[*]\+\[sbotools.hints(5)\](sbotools.hints.5.md)[*]\+/[sbotools.hints(5
 
 # Right, time to work out code blocks.
 sed -i "s/^sbotest/    sbotest/g" *
-NUMCHAR=$(($(echo $item | wc -m)+7))
-SPACES=""
-X=0
-while [ $X -lt $NUMCHAR ] ; do
-  SPACES="$SPACES "
-  X=$((X+1))
-done
+SPACES="            "
 [ -f sbotest.1.md ] && sed -i "s/^\\\\\[/$SPACES\\\\[/g" sbotest.1.md
 [ -f sbotest.1.md ] && sed -i "s/^sbo_name/$SPACES\sbo_name/g" sbotest.1.md
 
 # Why, yes, these lines are horrible.
+sed -i "s/     •      /\* /g" *
+sed -i "/\s.-/d" *
 sed -i "s/\\\\\[/[/g" *
 sed -i "s/\\\\\]/]/g" *
 sed -i 's|\\\\\\$|\\|g' *
