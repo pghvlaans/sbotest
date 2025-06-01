@@ -24,7 +24,6 @@ use Getopt::Long qw/ :config no_ignore_case_always bundling /;
 
 my $self = basename($0);
 
-# $full_reverse is not yet implemented; current default behavior
 my ($help, $version, $pkgdir, $sbo_archive, $jobs, $single, $full_reverse, $logdir, $archive_rebuild);
 
 GetOptions(
@@ -109,7 +108,7 @@ sub clean_packages {
 }
 
 # find and remove out-of-date archived packages, provided they
-# are not already installed
+# are not blacklisted or already installed
 sub find_outdated {
 	script_error("find_outdated requires two arguments.") unless @_ == 2;
 	my ($sbo_archive, $inst_sbos) = @_;
@@ -126,6 +125,7 @@ sub find_outdated {
 		next unless -f $ls;
 		my ($pkg_name, $pkg_version, $pkg_build) = get_package_info($ls);
 		next if grep { /^$pkg_name$/ } @$inst_sbos;
+		next if on_blacklist($pkg_name);
 		my $pkg_location = get_sbo_location($pkg_name);
 		my $sbo_version = get_sbo_version($pkg_location);
 		my $sbo_build = get_sbo_build_number($pkg_location);

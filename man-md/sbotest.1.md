@@ -66,7 +66,7 @@ scripts to **SlackBuilds.org**.
 
 The package archive can be kept current with **\--archive-rebuild**,
 which replaces all outdated packages in the archive, provided that they
-are not installed.
+are not installed or on the blacklist.
 
 ## OPTIONS
 
@@ -81,7 +81,8 @@ Show version information.
 **\--archive-rebuild**
 
 Replace outdated packages in the archive, */usr/sbotest/archive* by
-default. Please note that installed packages are ignored.
+default. Please note that installed and blacklisted packages are
+ignored.
 
 **-f\|\--full-reverse**
 
