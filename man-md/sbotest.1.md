@@ -9,7 +9,7 @@
 [EXIT CODES](#exit-codes)\
 [BUGS](#bugs)\
 [SEE ALSO](#see-also)\
-[ACKNOWLEDGEMENTS](#acknowledgements)\
+[ACKNOWLEDGMENTS](#acknowledgments)\
 [AUTHOR](#author)
 
 ------------------------------------------------------------------------
@@ -181,7 +181,7 @@ SBO::Lib::Build(3), SBO::Lib::Info(3), SBO::Lib::Pkgs(3),
 SBO::Lib::Repo(3), SBO::Lib::Tree(3), SBO::Lib::Util(3), sbolint(1),
 sbopkglint(1)
 
-## ACKNOWLEDGEMENTS
+## ACKNOWLEDGMENTS
 
 **Jacob Pipkin**, **Luke Williams** and **Andreas Guldstrand** are the
 original authors of **sbotools**.

@@ -27,7 +27,7 @@ sed -i "s/#BUGS/#bugs/g" *
 sed -i "s/#SEE\%20ALSO/#see-also/g" *
 sed -i "s/#EXIT\%20CODES/#exit-codes/g" *
 sed -i "s/#CONFIGURATION/#configuration/g" *
-sed -i "s/#ACKNOWLEDGEMENTS/#acknowledgements/g" *
+sed -i "s/#ACKNOWLEDGMENTS/#acknowledgments/g" *
 sed -i 's|#AUTHOR)\\|#author)|g' *
 
 sed -i "s/^## NAME.*/## NAME/g" *
@@ -39,7 +39,7 @@ sed -i "s/^## BUGS.*/## BUGS/g" *
 sed -i "s/^## SEE ALSO.*/## SEE ALSO/g" *
 sed -i "s/^## EXIT CODES.*/## EXIT CODES/g" *
 sed -i "s/^## CONFIGURATION.*/## CONFIGURATION/g" *
-sed -i "s/^## ACKNOWLEDGEMENTS.*/## ACKNOWLEDGEMENTS/g" *
+sed -i "s/^## ACKNOWLEDGMENTS.*/## ACKNOWLEDGMENTS/g" *
 sed -i "s/^## AUTHOR.*/## AUTHOR/g" *
 
 sed -i "s/^# sbotest.*/# sbotest/g" *
