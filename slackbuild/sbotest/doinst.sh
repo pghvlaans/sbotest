@@ -11,4 +11,4 @@ config() {
   # Otherwise, we leave the .new copy for the admin to consider...
 }
 
-config etc/sbotest.conf.new
+config etc/sbotest/sbotest.conf.new
