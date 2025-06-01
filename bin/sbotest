@@ -191,11 +191,15 @@ my (@missing, @bad_lint, @bad_pkg_lint, @fail_to_build, @successful, @unsupporte
 my $pkg_dir = $config{PKG_DIR} eq 'FALSE' ? "$config{SBO_HOME}/tests/$begin_time-tests" : "$config{PKG_DIR}/$begin_time-tests";
 my $log_dir = $config{LOG_DIR} eq 'FALSE' ? "$config{SBO_HOME}/logs/$begin_time-logs" : "$config{LOG_DIR}/$begin_time-logs";
 my $logfile = "$config{SBO_HOME}/results/$begin_time.log";
+
+if ($config{LOCAL_OVERRIDES} ne "FALSE") {
+	usage_error("$config{LOCAL_OVERRIDES} is specified as the overrides directory, but does not exist. Exiting.") unless -d $config{LOCAL_OVERRIDES};
+}
+
 make_path($pkg_dir);
 exit _ERR_SCRIPT unless -d $pkg_dir;
 make_path("$config{SBO_HOME}/results") unless -d "$config{SBO_HOME}/results";
 exit _ERR_SCRIPT unless -d "$config{SBO_HOME}/results";
-
 die unless update_tree();
 
 my $arch = get_arch();
