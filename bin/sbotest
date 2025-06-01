@@ -1,0 +1,359 @@
+#!/usr/bin/perl
+#
+# vim: ts=4:noet
+#
+# sbotest
+# sbotools-based reverse dependency build tester
+#
+# author: K. Eugene Carlson <kvngncrlsn@gmail.com>
+# license: MIT License
+
+my $SBOTEST_VERSION = "0.1";
+
+use 5.016;
+use strict;
+use warnings;
+
+use SBO::Lib qw/ :const :config get_arch get_readme_contents get_inst_names get_installed_packages get_sbo_build_number get_sbo_version get_user_group user_group_exist $conf_file get_sbo_location get_all_available get_build_queue get_full_reverse get_reverse_reqs on_blacklist @concluded @reverse_concluded slurp update_tree uniq lint_sbo_config usage_error error_code /;
+
+use Cwd;
+use File::Basename;
+use File::Copy;
+use File::Path qw/ make_path /;
+use Getopt::Long qw/ :config no_ignore_case_always bundling /;
+
+my $self = basename($0);
+
+# $full_reverse is not yet implemented; current default behavior
+my ($help, $version, $pkgdir, $sbo_archive, $jobs, $single, $full_reverse, $logdir);
+
+GetOptions(
+	'help|h'            => \$help,
+	'version|v'         => \$version,
+	'pkg-dir|k=s'       => \$pkgdir,
+	'sbo-archive|a=s'   => \$sbo_archive,
+	'full-reverse|f'    => \$full_reverse,
+	'single|s'          => \$single,
+	'jobs|j=s'          => \$jobs,
+	'log-dir|l=s'       => \$logdir,
+);
+
+$config{SBO_ARCHIVE} = defined $sbo_archive ? $sbo_archive : $config{SBO_ARCHIVE};
+$config{JOBS} = defined $jobs ? $jobs : $config{JOBS};
+$config{PKG_DIR} = defined $pkgdir ? $pkgdir : $config{PKG_DIR};
+$config{LOG_DIR} = defined $logdir ? $logdir : $config{LOG_DIR};
+
+show_usage() if $help;
+show_version() if $version;
+
+usage_error("full-reverse is incompatible with single. Exiting.") if $single and $full_reverse;
+
+# in addition to the usual settings, this will also lint
+# SBO_ARCHIVE when called from here
+lint_sbo_config($self, %config);
+
+sub show_usage {
+	print <<"EOF";
+Usage: $self [options] sbo ...
+       $self [-h|-v]
+
+Options:
+  -h|--help:
+    this screen.
+  -v|--version:
+    sbotest version information.
+  --full-reverse|-f:
+    test the full reverse dependency tree.
+  --jobs|-j [FALSE|#]:
+    set the number of jobs to use, or ignore the JOBS setting.
+  --log-dir|-L (FALSE|/path):
+    save log files to this path, appending a timestamp.
+  --pkg-dir|-k [FALSE|/path]:
+    save built packages to this path, appending a timestamp.
+  --sbo-archive|-a [FALSE|/path]:
+    reinstall saved packages from this path.
+  --single|-s:
+    do not test reverse dependencies.
+
+By default, sbotest builds any requested scripts and the first
+level of reverse dependencies, calling /usr/bin/sbopkglint for
+testing after after all builds are completed.
+
+EOF
+	exit 0;
+}
+
+sub show_version {
+	say "$self version $SBOTEST_VERSION";
+	say "licensed under the MIT License";
+	exit 0;
+}
+
+# remove any _SBo package installed during the test run and
+# not needed for the next build; takes $inst_sbos and,
+# optionally, $queue as an argument; no return value
+sub clean_packages {
+	my $inst_sbos = shift;
+	my $queue = shift;
+	my $current_sbos = get_inst_names(get_installed_packages('SBO'));
+	for my $sbo (@$current_sbos) {
+		next if grep { /^$sbo$/ } @$inst_sbos;
+		if (defined $queue) {
+			next if grep { /^$sbo$/ } @$queue;
+		}
+		exit _ERR_SCRIPT unless system('/sbin/removepkg', '--terse', $sbo) == 0;
+	}
+}
+
+# given a package string, returns the name, version and
+# build number
+sub get_package_info {
+	my $pkg_name = shift;
+	exit _ERR_SCRIPT unless defined $pkg_name;
+	my @pkg_string = split '-', $pkg_name;
+	my $pkg_version = $pkg_string[-3];
+	my $pkg_build = $pkg_string[-1];
+	$pkg_build =~ s/[\D].*$//;
+	$pkg_name =~ s/(-[^-]*){3}$//;
+	return ($pkg_name, $pkg_version, $pkg_build);
+}
+
+# install any pre-built packages from the test archive that
+# meet the following criteria:
+#
+# - included in the build queue
+# - not already in the test archive
+# - not a test target
+# - not already installed
+# - build and version match the local repository
+sub install_archived {
+	my ($queue, $sbo_archive, $pkg_dir, $inst_sbos, @to_test) = @_;
+	my $temp_cwd = getcwd();
+	if (-d $sbo_archive) {
+		chdir $sbo_archive;
+	} else {
+		return();
+	}
+	opendir(my $dh, $sbo_archive);
+	while (my $ls = readdir $dh) {
+		next if $ls eq "." or $ls eq "..";
+		next if -f "$pkg_dir/$ls";
+		my ($pkg_name, $pkg_version, $pkg_build) = get_package_info($ls);
+		next if grep { /^$pkg_name$/ } @$inst_sbos;
+		next unless grep { /^$pkg_name$/ } @$queue;
+		next if grep { /^$pkg_name$/ } @to_test;
+		my $pkg_location = get_sbo_location($pkg_name);
+		my $sbo_version = get_sbo_version($pkg_location);
+		my $sbo_build = get_sbo_build_number($pkg_location);
+		next unless $pkg_version eq $sbo_version;
+		next unless $pkg_build eq $sbo_build;
+		exit _ERR_SCRIPT unless system("/sbin/upgradepkg", "--reinstall", "--install-new", '--terse', $ls) == 0;
+	}
+	chdir $temp_cwd;
+}
+
+# given the system architecture and a location, return
+# 1 if the script is supported and 0 otherwise
+sub is_supported {
+	my ($arch, $location) = @_;
+	my $supported = 1;
+	return 0 unless defined $arch and defined $location;
+	my $script = basename $location;
+	my $info_file = "$location/$script.info";
+	return 0 unless -f $info_file;
+	open(my $fh, "<", $info_file);
+	return 0 unless defined $fh;
+	my $search = "DOWNLOAD";
+	$search = "DOWNLOAD_x86_64" if $arch eq "x86_64";
+	for my $line (<$fh>) {
+		chomp(my $string = $line);
+		next unless $string =~ m/^$search=\"/;
+		$supported = 0 if $string =~ m/^$search=\"UN(SUPPOR|TES)TED\"/;
+		last;
+	}
+	close $fh;
+	return $supported;
+}
+
+# $sbotest_compatible is exported from SBO::Lib::Util.pm; if
+# it is not present, the sbotools version is too old
+usage_error("The installed version of sbotools is incompatible with sbotest; please upgrade.") unless defined $sbotest_compatible;
+usage_error("sbotools needs to be installed.") unless -x "/usr/sbin/sboconfig";
+usage_error("sbo-maintainer-tools needs to be installed.") unless -x "/usr/bin/sbopkglint";
+usage_error("Must run as root. Exiting.") unless $< == 0;
+show_usage() unless @ARGV;
+
+my $cwd = getcwd();
+chomp(my $begin_time = `/usr/bin/date +%Y-%m-%d-%H:%M`);
+chomp(my $start_date = `/usr/bin/date`);
+
+my (@missing, @bad_lint, @bad_pkg_lint, @fail_to_build, @successful, @unsupported);
+my $pkg_dir = $config{PKG_DIR} eq 'FALSE' ? "$config{SBO_HOME}/tests/$begin_time-tests" : "$config{PKG_DIR}/$begin_time-tests";
+my $log_dir = $config{LOG_DIR} eq 'FALSE' ? "$config{SBO_HOME}/logs/$begin_time-logs" : "$config{LOG_DIR}/$begin_time-logs";
+my $logfile = "$config{SBO_HOME}/results/$begin_time.log";
+make_path($pkg_dir);
+exit _ERR_SCRIPT unless -d $pkg_dir;
+make_path("$config{SBO_HOME}/results") unless -d "$config{SBO_HOME}/results";
+exit _ERR_SCRIPT unless -d "$config{SBO_HOME}/results";
+
+die unless update_tree();
+
+my $arch = get_arch();
+
+# nothing installed at the beginning of the test
+# run will be uninstalled during it
+my $inst_sbos = get_inst_names(get_installed_packages('SBO'));
+
+my (@available, $available, $all_fulldeps, @to_test);
+unless ($single) {
+	@available = @{ get_all_available() };
+	$available = +{ map {; $_->{name}, $_->{series} } @available };
+	$all_fulldeps = get_reverse_reqs($available);
+}
+
+FIRST: for my $sbo (@ARGV) {
+	my $dir = get_sbo_location($sbo);
+	chdir $dir;
+	unless (defined $dir and -d $dir) {
+		push @missing, $sbo;
+		next FIRST;
+	}
+	unless(is_supported($arch, $dir)) {
+		push @unsupported, $sbo;
+		next FIRST;
+	}
+	next FIRST if on_blacklist($sbo);
+	push @to_test, $sbo;
+	push @bad_lint, $sbo unless system("sbolint") == 0;
+	splice @reverse_concluded;
+	splice @concluded;
+	unless ($single) {
+		my @available_reverse;
+		if ($full_reverse) {
+			@available_reverse = get_full_reverse($sbo, $available, $all_fulldeps);
+		} else {
+			for my $sbo2 (keys %$available) {
+				push @available_reverse, $sbo2 if $all_fulldeps->{$sbo}->{$sbo2};
+			}
+		}
+		for my $target (uniq(sort(@available_reverse))) {
+			push @to_test, $target;
+		}
+	}
+}
+
+unless (@to_test) {
+	say "No testing to do.";
+	say ("\nRequested:\n  ", join("\n  ", @ARGV));
+	say ("\nUnsupported:\n  ", join("\n  ", @unsupported)) if @unsupported;
+	say ("\nMissing:\n  ", join("\n  ", @missing)) if @missing;
+	exit;
+}
+@to_test = uniq(sort(@to_test));
+
+SECOND: for my $sbo (@to_test) {
+	my $dir = get_sbo_location($sbo);
+	# skip if unsupported
+	unless (is_supported($arch, $dir)) {
+		push @unsupported, $sbo;
+		next SECOND;
+	}
+	# skip if blacklisted
+	next SECOND if on_blacklist($sbo);
+	chdir $dir;
+	splice @concluded;
+	my $queue = get_build_queue([$sbo], {});
+	clean_packages($inst_sbos, $queue);
+	install_archived($queue, $config{SBO_ARCHIVE}, $pkg_dir, $inst_sbos, @to_test);
+	push @bad_lint, $sbo unless system("sbolint") == 0;
+	# reinstall anything already built on this
+	# test run...
+	chdir $pkg_dir;
+	my @to_reinstall;
+	opendir(my $dh, $pkg_dir);
+	PKG_CHECK: while (my $ls = readdir $dh) {
+		next PKG_CHECK if $ls eq "." or $ls eq "..";
+		my ($pkg_name, $pkg_version, $pkg_build) = get_package_info($ls);
+		# but not if the target itself has already
+		# been built; in that case, skip
+		next SECOND if $pkg_name eq $sbo;
+		push @to_reinstall, $ls if grep { /^$pkg_name$/ } @$queue;
+	}
+	if (@to_reinstall) {
+		my $currently_installed = get_inst_names(get_installed_packages('SBO'));
+		REINSTALL: for my $script (@to_reinstall) {
+			my ($script_name, $script_version, $script_build) = get_package_info($script);
+			next REINSTALL if grep { /^$script_name$/ } @$currently_installed;
+			exit _ERR_SCRIPT unless system('/sbin/upgradepkg', '--reinstall', '--install-new', '--terse', $script) == 0;
+		}
+	}
+	# run any required useradd and groupadd
+	# commands
+	UGCHECK: for my $item (@$queue) {
+		my $location = get_sbo_location($item);
+		my $readme = get_readme_contents($location);
+		next UGCHECK unless defined $readme;
+		my $cmds = get_user_group($readme, $location);
+		if ($$cmds[0] and not user_group_exist(@$cmds)) { system($_) for @$cmds; }
+	}
+	my $res = system("sboinstall -o -L $log_dir -k $pkg_dir --batch $sbo");
+	# this won't catch everything, but at least
+	# it's something
+	exit _ERR_INST_SIGNAL if $res == _ERR_INST_SIGNAL;
+	push @fail_to_build, $sbo unless $res == 0;
+}
+
+# for the last run only
+clean_packages($inst_sbos);
+
+chdir $pkg_dir;
+opendir(my $dh, $pkg_dir);
+# run sbopkglint on the scripts in ARGV and their
+# reverse dependencies
+TESTING: while (my $ls = readdir $dh) {
+	next TESTING if $ls eq "." or $ls eq "..";
+	my ($pkg_name, $pkg_version, $pkg_build) = get_package_info($ls);
+	next TESTING unless grep { /^$pkg_name$/ } @to_test;
+	my $log_name = "$log_dir/sbopkglint_$pkg_name";
+	my $cmd = "( /usr/bin/sbopkglint $ls 2>&1; echo \$? > $log_dir/.res) | tee $log_name";
+	system('bash', '-c', $cmd);
+	my $res = slurp "$log_dir/.res";
+	if ($res == 0) {
+		push @successful, $pkg_name;
+	} else {
+		push @bad_pkg_lint, $pkg_name;
+	}
+}
+
+unlink "$log_dir/.res" if -f "$log_dir/.res";
+chdir $cwd;
+
+@successful = uniq(sort(@successful)) if @successful;
+@bad_pkg_lint = uniq(sort(@bad_pkg_lint)) if @bad_pkg_lint;
+
+chomp(my $end_date = `/usr/bin/date`);
+
+say ("\nRequested:\n  ", join("\n  ", @ARGV));
+say ("\nSuccessful:\n  ", join("\n  ", @successful)) if @successful;
+say ("\nMissing:\n  ", join("\n  ", @missing)) if @missing;
+say ("\nFailed to Build:\n  ", join("\n  ", @fail_to_build)) if @fail_to_build;
+say ("\nBad sbolint:\n  ", join("\n  ", @bad_lint)) if @bad_lint;
+say ("\nBad sbopkglint:\n  ", join("\n  ", @bad_pkg_lint)) if @bad_pkg_lint;
+say ("\nUnsupported:\n  ", join("\n  ", @unsupported)) if @unsupported;
+
+unlink $logfile if -f $logfile;
+open(my $fh, '>', $logfile);
+error_code("\nNo log could be written; exiting.", _ERR_OPENFH) unless defined $fh;
+
+say {$fh} "Test began: $start_date";
+say {$fh} "Test ended: $end_date";
+say {$fh} ("\nRequested:\n  ", join("\n  ", @ARGV));
+say {$fh} ("\nSuccessful:\n  ", join("\n  ", @successful)) if @successful;
+say {$fh} ("\nMissing:\n  ", join("\n  ", @missing)) if @missing;
+say {$fh} ("\nFailed to Build:\n  ", join("\n  ", @fail_to_build)) if @fail_to_build;
+say {$fh} ("\nBad sbolint:\n  ", join("\n  ", @bad_lint)) if @bad_lint;
+say {$fh} ("\nBad sbopkglint:\n  ", join("\n  ", @bad_pkg_lint)) if @bad_pkg_lint;
+say {$fh} ("\nUnsupported:\n  ", join("\n  ", @unsupported)) if @unsupported;
+
+close $fh;
+say "\nLog written to $logfile.";

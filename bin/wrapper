@@ -1,0 +1,16 @@
+#!/usr/bin/perl
+
+use strict;
+use warnings;
+
+# the following ENV variables must be set first
+
+# if the user sets SBOTEST_CONF_DIR, use that
+my $test_conf_req = $ENV{SBOTEST_CONF_DIR};
+my $test_conf_dir = defined $test_conf_req ? $test_conf_req : "/etc/sbotest";
+
+# use the sbotest configuration directory and defaults
+$ENV{SBOTOOLS_CONF_DIR} = $test_conf_dir;
+$ENV{SBOTEST_MODE} = 1;
+
+system("/usr/libexec/sbotest", @ARGV);

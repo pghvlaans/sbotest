@@ -1,0 +1,6 @@
+A few more things to do before a version release:
+
+* "sbotest --archive-rebuild": Rebuild and replace outdated packages in
+  the archive.
+* Make sure the man page and README.md are ready to go.
+* Add an sbotest section to the sbotools website.

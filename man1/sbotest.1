@@ -1,0 +1,387 @@
+.TH sbotest 1 "Sweetmorn, Confusion 5, 3191 YOLD - Syaday" "sbotest 0.1" sbotest
+.SH NAME
+.P
+.B
+sbotest
+- build test SlackBuilds and their reverse dependencies
+.SH SYNOPSIS
+.P
+sbotest [-h|-v]
+.P
+sbotest [-f|-s] [-j #|FALSE] [-akl /path|FALSE] \\
+        sbo_name (sbo_name)
+.SH DISCLAIMER
+.P
+.B
+sbotest
+is designed and intended to run in a build-testing environment,
+such as a virtual machine or a
+.B
+Docker
+image. Missing users and groups are added automatically when running
+.B
+sbotest\fR\
+\&, and any packages installed as a result of testing are removed
+afterwards unless they had been previously installed.
+.P
+Using
+.B
+sbotest
+on a general-purpose Slackware installation is
+.B
+unsupported
+and
+.B
+unadvisable\fR\
+\&.
+.SH DESCRIPTION
+.B
+sbotest
+is a reverse dependency build tester based on the
+.B
+sbotools
+library. Called without options, it builds any requested
+SlackBuilds with their first level of reverse dependencies.
+To test all reverse dependencies of the requested scripts,
+use the
+.B
+--full-reverse
+option;
+.B
+--single
+tests no reverse dependencies.
+.P
+Each test target has a separate testing workflow. First,
+dependencies saved to the
+.B
+SBO_ARCHIVE
+directory (default
+.I
+/usr/sbotest/archive\fR\
+\&) are installed to save time; see
+.B
+CONFIGURATION
+below for details. Any missing users and groups are added, and
+.B
+sboinstall(1)
+is called.
+.P
+Newly-built packages are saved to a timestamp-appended
+.B
+PKG_DIR\fR\
+\&. Any packages that are not required for the following build
+are removed afterwards. Packages without the
+.I
+_SBo
+tag are unaffected, and no package that is already installed when
+.B
+sbotest
+starts can be removed or reinstalled.
+.P
+.B
+sbopkglint(1)
+is run on all test targets once
+.B
+sboinstall(1)
+has been called for the last time. A summary of results is
+displayed and saved to
+.I
+SBO_HOME/test_(timestamp).log\fR\
+\&. Scripts that fail
+.B
+sbolint(1)
+or
+.B
+sbopkglint(1)\fR\
+\&, or fail to build altogether, are reported so that any
+issues can be taken care of before submitting scripts to
+.B
+SlackBuilds.org\fR\
+\&.
+.P
+.SH OPTIONS
+.P
+.B
+-h|--help
+.RS
+Show help information.
+.RE
+.P
+.B
+-v|--version
+.RS
+Show version information.
+.RE
+.P
+.B
+-f|--full-reverse
+.RS
+Test all reverse dependencies for the requested scripts rather than
+the first level only.
+.RE
+.P
+.B
+-s|--single
+.RS
+Do not test reverse dependencies for any requested script.
+.RE
+.P
+.B
+-a|--sbo-archive
+.RS
+If
+.B
+FALSE\fR\
+\&, use the default archive directory at
+.I
+SBO_HOME/archive\fR\
+\&. If an
+.B
+absolute path\fR\
+\&, use that as the archive directory.
+.RE
+.P
+.B
+-j|--jobs
+.RS
+If
+.B
+numeric\fR\
+\&, pass to
+.B
+make
+with the
+.B
+-j
+flag.
+.RE
+.P
+.B
+-k|--pkg-dir
+.RS
+If
+.B
+FALSE\fR\
+\&, use the default package directory of
+.I
+SBO_HOME/tests/(timestamp)-tests\fR\
+\&, e.g.
+.I
+/usr/sbotest/tests/2025-05-31-16:27-tests\fR\
+\&. If an
+.B
+absolute path\fR\
+\&, save packages built during the test run a timestamp-designated
+directory under that path.
+.RE
+.P
+.B
+-l|--log-dir
+.RS
+If
+.B
+FALSE\fR\
+\&, use the default log directory of
+.I
+SBO_HOME/logs/(timestamp)-logs\fR\
+\&. If an
+.B
+absolute path\fR\
+\&, save build and
+.B
+sbopkglint(1)
+logs to that directory with a timestamp appended.
+.RE
+.SH CONFIGURATION
+The default configuration directory is
+.I
+/etc/sbotest
+with files
+.I
+sbotest.conf\fR\
+\&,
+.I
+sbotest.hints
+and
+.I
+obsolete
+being recognized. To use an alternative configuration directory,
+set an environment variable
+.I
+SBOTEST_CONF_DIR\fR\
+\&.
+.P
+Several default settings differ from base
+.B
+sbotools\fR\
+\&:
+.P
+.B
+ETC_PROFILE
+.RS
+With a default of
+.B
+TRUE\fR\
+\&, source all executable scripts of the form
+.I
+*.sh
+in
+.I
+/etc/profile
+before building each script.
+.RE
+.P
+.B
+CPAN_IGNORE
+.RS
+With a default of
+.B
+TRUE\fR\
+\&, build and install SlackBuilds regardless of
+whether they have been installed from the CPAN.
+.RE
+.P
+.B
+SBO_HOME
+.RS
+The default value is
+.I
+/usr/sbotest\fR\
+\&.
+.RE
+.P
+.B
+PKG_DIR
+.RS
+The default value is
+.I
+SBO_HOME/tests\fR\
+\&. Unless an
+.B
+absolute path
+is specified, packages built during the test run will be saved
+to a timestamp-designated directory under that path, e.g.
+.I
+/usr/sbotest/tests/2025-05-31-16:27-tests\fR\
+\&.
+.RE
+.P
+.B
+LOG_DIR
+.RS
+The default value is
+.I
+SBO_HOME/logs\fR\
+\&. Unless an
+.B
+absolute path
+is specified, log files will be saved to a timestamp-designated
+directory under that path.
+.RE
+.P
+.B
+SBO_ARCHIVE
+.RS
+This setting is used only when running
+.B
+sbotest\fR\
+\&, and has a default value of
+.I
+SBO_HOME/archive\fR\
+\&. Any packages stored here will be installed prior to calling
+.B
+sboinstall(1)\fR\
+\&, provided that they:
+.RS
+.IP \[bu] 3n
+Are not test targets.
+.IP \[bu] 3n
+Are required by the script to be tested.
+.IP \[bu] 3n
+Are not already installed.
+.IP \[bu] 3n
+Have versions and build numbers matching the local repository.
+.RE
+.RE
+.P
+Hints may be specified in
+.I
+/etc/sbotest/sbotest.hints\fR\
+\&. Saved build options from
+.B
+sbotools
+are ignored. See
+.B
+sbotools.config(5)
+and
+.B
+sbotools.hints(5)
+for more information.
+.SH EXIT CODES
+.P
+.B
+sbotest
+can exit with the following codes:
+.RS
+
+0: all operations were succesful.
+.RE
+.RS
+1: a usage error occured, such as specifying invalid options.
+.RE
+.RS
+2: a script or module error occurred.
+.RE
+.RS
+6: unable to obtain a required file handle.
+.RE
+.RS
+7: unable to get required info from the
+.I
+info
+file.
+.RE
+.RS
+8: unable to unset the exec-on-close bit on a temporary file.
+.RE
+.RS
+12: interrupt signal received.
+.RE
+.RS
+13: circular dependencies detected.
+.RE
+.RS
+15: GPG verification failed.
+.RE
+.SH BUGS
+.P
+None known. If found, Issues and Pull Requests to
+.UR https://github.com/pghvlaans/sbotest/
+.UE
+are always welcome.
+.SH SEE ALSO
+.P
+sboinstall(1), sbotools.conf(5), sbotools.hints(5), SBO::Lib(3), SBO::Lib::Build(3), SBO::Lib::Info(3), SBO::Lib::Pkgs(3), SBO::Lib::Repo(3), SBO::Lib::Tree(3), SBO::Lib::Util(3), sbolint(1), sbopkglint(1)
+.SH ACKNOWLEDGEMENTS
+.B
+Jacob Pipkin\fR\
+\&,
+.B
+Luke Williams
+and
+.B
+Andreas Guldstrand
+are the original authors of
+.B
+sbotools\fR\
+\&.
+.P
+.B
+sbo-maintainer-tools
+is written and maintained by
+.B
+B. Watson\fR\
+\&.
+.SH AUTHOR
+.P
+K. Eugene Carlson <kvngncrlsn@gmail.com>
