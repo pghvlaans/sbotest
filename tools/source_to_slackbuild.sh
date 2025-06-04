@@ -16,6 +16,7 @@ TEMPDIR=$(mktemp -d)
 
 if [ ! -d $TEMPDIR ]; then
   echo "Making the temporary directory failed. Exiting."
+  exit 1
 fi
 
 (
@@ -26,6 +27,7 @@ fi
 )
 
 cp $TEMPDIR/sbotest-$VER.tar.gz slackbuild/sbotest
+rm -r $TEMPDIR
 
 echo ""
 echo "Created sbotest-$VER.tar.gz and moved it to slackbuild/sbotest."
