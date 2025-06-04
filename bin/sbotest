@@ -14,7 +14,7 @@ use 5.016;
 use strict;
 use warnings;
 
-use SBO::Lib qw/ :const :config get_arch get_readme_contents get_inst_names get_installed_packages get_sbo_build_number get_sbo_version get_user_group user_group_exist $conf_file get_sbo_location get_all_available get_build_queue get_full_reverse get_reverse_reqs on_blacklist @concluded @reverse_concluded slurp update_tree uniq lint_sbo_config usage_error error_code script_error /;
+use SBO::Lib qw/ :const :config build_cmp get_arch get_readme_contents get_inst_names get_installed_packages get_sbo_build_number get_sbo_version get_user_group user_group_exist $conf_file get_sbo_location get_all_available get_build_queue get_full_reverse get_reverse_reqs lint_sbo_config on_blacklist slurp update_tree uniq version_cmp @concluded @reverse_concluded error_code usage_error script_error /;
 
 use Cwd;
 use File::Basename;
@@ -24,24 +24,26 @@ use Getopt::Long qw/ :config no_ignore_case_always bundling /;
 
 my $self = basename($0);
 
-my ($help, $version, $pkgdir, $sbo_archive, $jobs, $single, $full_reverse, $logdir, $archive_rebuild);
+my ($help, $version, $pkgdir, $sbo_archive, $jobs, $single, $full_reverse, $logdir, $archive_rebuild, $strict_upgrades);
 
 GetOptions(
-	'help|h'            => \$help,
-	'version|v'         => \$version,
-	'pkg-dir|k=s'       => \$pkgdir,
-	'sbo-archive|a=s'   => \$sbo_archive,
-	'full-reverse|f'    => \$full_reverse,
-	'single|s'          => \$single,
-	'jobs|j=s'          => \$jobs,
-	'log-dir|l=s'       => \$logdir,
-	'archive-rebuild'   => \$archive_rebuild,
+	'help|h'              => \$help,
+	'version|v'           => \$version,
+	'pkg-dir|k=s'         => \$pkgdir,
+	'sbo-archive|a=s'     => \$sbo_archive,
+	'full-reverse|f'      => \$full_reverse,
+	'single|s'            => \$single,
+	'jobs|j=s'            => \$jobs,
+	'log-dir|l=s'         => \$logdir,
+	'archive-rebuild'     => \$archive_rebuild,
+	'strict-upgrades|S=s' => \$strict_upgrades,
 );
 
 $config{SBO_ARCHIVE} = defined $sbo_archive ? $sbo_archive : $config{SBO_ARCHIVE};
 $config{JOBS} = defined $jobs ? $jobs : $config{JOBS};
 $config{PKG_DIR} = defined $pkgdir ? $pkgdir : $config{PKG_DIR};
 $config{LOG_DIR} = defined $logdir ? $logdir : $config{LOG_DIR};
+$config{STRICT_UPGRADES} = defined $strict_upgrades ? $strict_upgrades : $config{STRICT_UPGRADES};
 
 show_usage() if $help;
 show_version() if $version;
@@ -66,10 +68,12 @@ Options:
     test the full reverse dependency tree.
   --jobs|-j [FALSE|#]:
     set the number of jobs to use, or ignore the JOBS setting.
-  --log-dir|-L (FALSE|/path):
+  --log-dir|-L [FALSE|/path]:
     save log files to this path, appending a timestamp.
   --pkg-dir|-k [FALSE|/path]:
     save built packages to this path, appending a timestamp.
+  --strict-upgrades|-S [FALSE|TRUE]:
+    with --archive-rebuild, delete only out-of-date packages.
   --sbo-archive|-a [FALSE|/path]:
     reinstall saved packages from this path.
   --single|-s:
@@ -107,12 +111,12 @@ sub clean_packages {
 	}
 }
 
-# find and remove out-of-date archived packages, provided they
-# are not blacklisted or already installed
+# find version- and build-mismatched archived packages, provided
+# they are not blacklisted or already installed
 sub find_outdated {
 	script_error("find_outdated requires two arguments.") unless @_ == 2;
 	my ($sbo_archive, $inst_sbos) = @_;
-	my @outdated;
+	my (@outdated_prelim, @up_to_date, @outdated);
 	my $temp_cwd = getcwd();
 	if (-d $sbo_archive) {
 		chdir $sbo_archive;
@@ -126,15 +130,20 @@ sub find_outdated {
 		my ($pkg_name, $pkg_version, $pkg_build) = get_package_info($ls);
 		next if grep { /^$pkg_name$/ } @$inst_sbos;
 		next if on_blacklist($pkg_name);
-		my $pkg_location = get_sbo_location($pkg_name);
-		my $sbo_version = get_sbo_version($pkg_location);
-		my $sbo_build = get_sbo_build_number($pkg_location);
-		next unless defined $sbo_version and defined $sbo_build;
-		next if $pkg_version eq $sbo_version and $pkg_build eq $sbo_build;
-		push @outdated, $pkg_name;
-		unlink $ls;
+		unless (not_same_as_repo($pkg_name, $pkg_version, $pkg_build)) {
+			push @up_to_date, $pkg_name;
+			next;
+		}
+		push @outdated_prelim, $pkg_name;
+		if ($config{STRICT_UPGRADES} eq 'FALSE' or not_same_as_repo($pkg_name, $pkg_version, $pkg_build) lt 0) {
+			say "Unlinking $ls.";
+			unlink $ls;
+		}
 	}
 	close $dh;
+	for my $cand (@outdated_prelim) {
+		push @outdated, $cand unless grep { /^$cand$/ } @up_to_date;
+	}
 	return() unless @outdated;
 	return @outdated;
 }
@@ -177,12 +186,7 @@ sub install_archived {
 		next if grep { /^$pkg_name$/ } @$inst_sbos;
 		next unless grep { /^$pkg_name$/ } @$queue;
 		next if grep { /^$pkg_name$/ } @to_test;
-		my $pkg_location = get_sbo_location($pkg_name);
-		my $sbo_version = get_sbo_version($pkg_location);
-		my $sbo_build = get_sbo_build_number($pkg_location);
-		next unless defined $sbo_version and defined $sbo_build;
-		next unless $pkg_version eq $sbo_version;
-		next unless $pkg_build eq $sbo_build;
+		next unless same_as_repo($pkg_name, $pkg_version, $pkg_build);
 		exit _ERR_SCRIPT unless system("/sbin/upgradepkg", "--reinstall", "--install-new", '--terse', $ls) == 0;
 	}
 	close $dh;
@@ -210,6 +214,30 @@ sub is_supported {
 	}
 	close $fh;
 	return $supported;
+}
+
+# returns 0 if the archived package matches the repo script,
+# -1 if the archived package is out-of-date, and 1 if the
+# archived package is of a later version
+sub not_same_as_repo {
+	script_error("not_same_as_repo requires three arguments.") unless @_ == 3;
+	my ($pkg_name, $pkg_version, $pkg_build) = @_;
+	my $pkg_location = get_sbo_location($pkg_name);
+	return 0 unless $pkg_location;
+	my $sbo_version = get_sbo_version($pkg_location);
+	my $sbo_build = get_sbo_build_number($pkg_location);
+	my $res1 = version_cmp($pkg_version, $sbo_version);
+	my $res2 = build_cmp($pkg_build, $sbo_build, $pkg_version, $sbo_version);
+	return $res1 if $res1;
+	return $res2 if $res2;
+	return 0;
+}
+
+# returns 1 if the archived package matches the repo script;
+# not strictly necessary, but improves readability
+sub same_as_repo {
+	script_error("same_as_repo requires three arguments.") unless @_ == 3;
+	return not_same_as_repo(@_) == 0;
 }
 
 # $sbotest_compatible is exported from SBO::Lib::Util.pm; if
@@ -251,7 +279,7 @@ my $arch = get_arch();
 my $inst_sbos = get_inst_names(get_installed_packages('SBO'));
 
 my (@available, $available, $all_fulldeps, @to_test);
-unless ($single) {
+unless ($single or $archive_rebuild) {
 	@available = @{ get_all_available() };
 	$available = +{ map {; $_->{name}, $_->{series} } @available };
 	$all_fulldeps = get_reverse_reqs($available);
@@ -327,10 +355,11 @@ SECOND: for my $sbo (@to_test) {
 	PKG_CHECK: while (my $ls = readdir $dh) {
 		next PKG_CHECK if $ls eq "." or $ls eq "..";
 		my ($pkg_name, $pkg_version, $pkg_build) = get_package_info($ls);
+		my $is_same = same_as_repo($pkg_name, $pkg_version, $pkg_build);
 		# but not if the target itself has already
 		# been built; in that case, skip
-		next SECOND if $pkg_name eq $sbo;
-		push @to_reinstall, $ls if grep { /^$pkg_name$/ } @$queue;
+		next SECOND if $pkg_name eq $sbo and $is_same;
+		push @to_reinstall, $ls if grep { /^$pkg_name$/ } @$queue and $is_same;
 	}
 	if (@to_reinstall) {
 		my $currently_installed = get_inst_names(get_installed_packages('SBO'));
@@ -367,6 +396,7 @@ TESTING: while (my $ls = readdir $dh) {
 	next TESTING if $ls eq "." or $ls eq "..";
 	my ($pkg_name, $pkg_version, $pkg_build) = get_package_info($ls);
 	next TESTING unless grep { /^$pkg_name$/ } @to_test;
+	next TESTING unless same_as_repo($pkg_name, $pkg_version, $pkg_build);
 	my $log_name = "$log_dir/sbopkglint_$pkg_name";
 	my $cmd = "( /usr/bin/sbopkglint $ls 2>&1; echo \$? > $log_dir/.res) | tee $log_name";
 	system('bash', '-c', $cmd);

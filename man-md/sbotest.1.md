@@ -25,7 +25,7 @@
     sbotest [-f|-s] [-j #|FALSE] [-akl /path|FALSE] \
             sbo_name (sbo_name)
 
-    sbotest [-al /path|FALSE] --archive-rebuild
+    sbotest [-al /path|FALSE] [-S TRUE|FALSE] --archive-rebuild
 
 ## DISCLAIMER
 
@@ -65,8 +65,11 @@ reported so that any issues can be taken care of before submitting
 scripts to **SlackBuilds.org**.
 
 The package archive can be kept current with **\--archive-rebuild**,
-which replaces all outdated packages in the archive, provided that they
-are not installed or on the blacklist.
+which rebuilds all version- and build-mismatched packages in the
+archive, provided that they are not installed or on the blacklist. If
+**STRICT_UPGRADES** is **TRUE**, only mismatched packages with lower
+version or build numbers will be removed from the archive. By default,
+all mismatched packages are removed.
 
 ## OPTIONS
 
@@ -80,9 +83,11 @@ Show version information.
 
 **\--archive-rebuild**
 
-Replace outdated packages in the archive, */usr/sbotest/archive* by
-default. Please note that installed and blacklisted packages are
-ignored.
+Replace build- and version-mismatched packages in the archive,
+*/usr/sbotest/archive* by default. Please note that installed and
+blacklisted packages are ignored. If **STRICT_UPGRADES** is **TRUE**,
+only mismatched packages with lower version or build numbers will be
+removed from the archive.
 
 **-f\|\--full-reverse**
 
@@ -115,6 +120,13 @@ under that path.
 If **FALSE**, use the default log directory of
 *SBO_HOME/logs/(timestamp)-logs*. If an **absolute path**, save build
 and **sbopkglint(1)** logs to that directory with a timestamp appended.
+
+**-S\|\--strict-upgrades**
+
+If **TRUE**, delete only mismatched packages with lower version or build
+numbers when running **\--archive-rebuild**. If **FALSE**, delete all
+mismatched packages from the archive. Overrides the setting in
+*/etc/sbotest/sbotest.conf*.
 
 ## CONFIGURATION
 
@@ -163,8 +175,8 @@ prior to calling [sboinstall(1)](sboinstall.1.md), provided that they:
 * Are not already installed.
 * Have versions and build numbers matching the local repository.
 
-The archive can be kept current by running **sbotest** with
-**\--archive-rebuild** regularly.
+The archive can be kept in sync with the local repository by running
+**sbotest** with **\--archive-rebuild**.
 
 Hints may be specified in */etc/sbotest/sbotest.hints*. Saved build
 options from **sbotools** are ignored. See [sbotools.conf(5)](sbotools.conf.5.md) and

@@ -11,7 +11,7 @@ sbotest [-h|-v]
 sbotest [-f|-s] [-j #|FALSE] [-akl /path|FALSE] \\
         sbo_name (sbo_name)
 .P
-sbotest [-al /path|FALSE] --archive-rebuild
+sbotest [-al /path|FALSE] [-S TRUE|FALSE] --archive-rebuild
 
 .SH DISCLAIMER
 .P
@@ -105,8 +105,16 @@ SlackBuilds.org\fR\
 The package archive can be kept current with
 .B
 --archive-rebuild\fR\
-\&, which replaces all outdated packages in the archive,
-provided that they are not installed or on the blacklist.
+\&, which rebuilds all version- and build-mismatched packages in the
+archive, provided that they are not installed or on the blacklist.
+If
+.B
+STRICT_UPGRADES
+is
+.B
+TRUE\fR\
+\&, only mismatched packages with lower version or build numbers will be
+removed from the archive. By default, all mismatched packages are removed.
 .P
 .SH OPTIONS
 .P
@@ -125,10 +133,18 @@ Show version information.
 .B
 --archive-rebuild
 .RS
-Replace outdated packages in the archive,
+Replace build- and version-mismatched packages in the archive,
 .I
 /usr/sbotest/archive
 by default. Please note that installed and blacklisted packages are ignored.
+If
+.B
+STRICT_UPGRADES
+is
+.B
+TRUE\fR\
+\&, only mismatched packages with lower version or build numbers will be
+removed from the archive.
 .RE
 .P
 .B
@@ -210,6 +226,25 @@ absolute path\fR\
 sbopkglint(1)
 logs to that directory with a timestamp appended.
 .RE
+.P
+.B
+-S|--strict-upgrades
+.RS
+If
+.B
+TRUE\fR\
+\&, delete only mismatched packages with lower version
+or build numbers when running
+.B
+--archive-rebuild\fR\
+\&. If
+.B
+FALSE\fR\
+\&, delete all mismatched packages from the archive. Overrides
+the setting in
+.I
+/etc/sbotest/sbotest.conf\fR\
+\&.
 .SH CONFIGURATION
 The default configuration directory is
 .I
@@ -321,13 +356,13 @@ Are not already installed.
 Have versions and build numbers matching the local repository.
 .RE
 .P
-The archive can be kept current by running
+The archive can be kept in sync with the local repository by running
 .B
 sbotest
 with
 .B
---archive-rebuild
-regularly.
+--archive-rebuild\fR\
+\&.
 .RE
 .P
 Hints may be specified in
