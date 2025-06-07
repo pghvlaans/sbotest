@@ -312,7 +312,7 @@ FIRST: for my $sbo (@ARGV) {
 				push @available_reverse, $sbo2 if $all_fulldeps->{$sbo}->{$sbo2};
 			}
 		}
-		for my $target (uniq(sort(@available_reverse))) {
+		for my $target (uniq(@available_reverse)) {
 			push @to_test, $target;
 		}
 	}
@@ -351,8 +351,8 @@ unless (@to_test) {
 	say ("\nMissing:\n  ", join("\n  ", @missing)) if @missing;
 	exit;
 }
-@to_test = uniq(sort(@to_test)) if @to_test;
-@rebuild_target = uniq(sort(@rebuild_target)) if @rebuild_target;
+@to_test = uniq(@to_test) if @to_test;
+@rebuild_target = uniq(@rebuild_target) if @rebuild_target;
 
 SECOND: for my $sbo (@to_test) {
 	my $dir = get_sbo_location($sbo);
