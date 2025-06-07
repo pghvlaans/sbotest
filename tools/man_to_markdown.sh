@@ -73,7 +73,7 @@ sed -i 's|\\\\\\$|\\|g' *
 sed -i "/^    /s/\\\|/|/g" *
 sed -i "/^    /s/\\\-/-/g" *
 sed -i "/^    /s/\\\\\\$/$/g" *
-sed -i "s/^git branch /    git branch /g" *
-sed -i "s/^git checkout /    git checkout /g" *
-sed -i "s/^git merge /    git merge /g" *
-sed -i "s/^git push /    git push /g" *
+sed -i 's|^git branch testbranch\\|    git branch testbranch|g' *
+sed -i 's|^git checkout testbranch\\|    git checkout testbranch|g' *
+sed -i 's|^git merge rust-opt dos2unix fvwm3\\|    git merge rust-opt dos2unix fvwm3|g' *
+sed -i 's|^git push \\--set-upstream origin testbranch|    git push --set-upstream origin testbranch|g' *
