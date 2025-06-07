@@ -89,7 +89,7 @@ sboinstall(1)
 has been called for the last time. A summary of results is
 displayed and saved to
 .I
-SBO_HOME/test_(timestamp).log\fR\
+SBO_HOME/results/(timestamp).log\fR\
 \&. Scripts that fail
 .B
 sbolint(1)
@@ -145,6 +145,15 @@ is
 TRUE\fR\
 \&, only mismatched packages with lower version or build numbers will be
 removed from the archive.
+.P
+If a script to be rebuilt has an automatic reverse dependency rebuild
+request in
+.I
+/etc/sbotest/sbotest.hints\fR\
+\&, its reverse dependencies are rebuilt and replaced as well. See
+.B
+sbotools.hints(5)
+for details about setting hints.
 .RE
 .P
 .B
@@ -245,6 +254,74 @@ the setting in
 .I
 /etc/sbotest/sbotest.conf\fR\
 \&.
+.SH TESTING STRATEGIES
+There are three basic ways to test scripts with
+.B
+sbotest\fR\
+\&.
+.RS
+.IP \[bu] 3n
+Test against the upstream repository without changes.
+.IP \[bu] 3n
+Test against a git
+branch with changes to be merged.
+.IP \[bu] 3n
+Test against the upstream repository with changes in a
+local overrides directory.
+.RE
+.P
+The first case is the simplest, and requires no configuration
+beyond setting
+.B
+RSYNC_DEFAULT
+or
+.B
+REPO
+in
+.I
+/etc/sbotest/sbotest.conf
+as appropriate.
+.P
+To test upcoming changes in a git branch, set
+.B
+GIT_BRANCH
+to the name of the branch and ensure that
+.B
+REPO
+is set if non-default. From here, run
+.B
+sbotest\fR\
+\&. If multiple scripts are to be tested for submission,
+using a single merged branch for testing may be convenient:
+.RS
+
+ git branch testbranch
+ git checkout testbranch
+ git merge rust-opt dos2unix fvwm3
+ git push --set-upstream origin testbranch
+
+
+.RE
+.P
+To use a local overrides directory, set
+.B
+LOCAL_OVERRIDES
+to an absolute path. Place directories for any script to be
+tested in the top level and run
+.B
+sbotest\fR\
+\&. Removing these directories when testing is complete is advisable.
+.P
+Reusing built packages in future test runs saves time and resources.
+The default archive directory is
+.I
+/usr/sbotest/archive\fR\
+\&; packages stored here are reinstalled in lieu of building
+when needed, provided they are up-to-date. Copy packages from the test
+directories under (by default)
+.I
+/usr/sbotest/tests
+to use them again later.
 .SH CONFIGURATION
 The default configuration directory is
 .I
@@ -258,8 +335,12 @@ sbotest.hints
 and
 .I
 obsolete
-being recognized. To use an alternative configuration directory,
-set an environment variable
+being recognized.
+.I
+obsolete
+is relevant only if testing against Slackware -current. To use
+an alternative configuration directory, set an environment
+variable
 .I
 SBOTEST_CONF_DIR\fR\
 \&.

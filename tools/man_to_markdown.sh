@@ -24,6 +24,7 @@ sed -i "s/#OPTIONS/#options/g" *
 sed -i "s/#DISCLAIMER/#disclaimer/g" *
 sed -i "s/#DESCRIPTION/#description/g" *
 sed -i "s/#BUGS/#bugs/g" *
+sed -i "s/#TESTING\%20STRATEGIES/#testing-strategies/g" *
 sed -i "s/#SEE\%20ALSO/#see-also/g" *
 sed -i "s/#EXIT\%20CODES/#exit-codes/g" *
 sed -i "s/#CONFIGURATION/#configuration/g" *
@@ -36,6 +37,7 @@ sed -i "s/^## OPTIONS.*/## OPTIONS/g" *
 sed -i "s/^## DISCLAIMER.*/## DISCLAIMER/g" *
 sed -i "s/^## DESCRIPTION.*/## DESCRIPTION/g" *
 sed -i "s/^## BUGS.*/## BUGS/g" *
+sed -i "s/^## TESTING STRATEGIES.*/## TESTING STRATEGIES/g" *
 sed -i "s/^## SEE ALSO.*/## SEE ALSO/g" *
 sed -i "s/^## EXIT CODES.*/## EXIT CODES/g" *
 sed -i "s/^## CONFIGURATION.*/## CONFIGURATION/g" *
@@ -71,3 +73,7 @@ sed -i 's|\\\\\\$|\\|g' *
 sed -i "/^    /s/\\\|/|/g" *
 sed -i "/^    /s/\\\-/-/g" *
 sed -i "/^    /s/\\\\\\$/$/g" *
+sed -i "s/^git branch /    git branch /g" *
+sed -i "s/^git checkout /    git checkout /g" *
+sed -i "s/^git merge /    git merge /g" *
+sed -i "s/^git push /    git push /g" *

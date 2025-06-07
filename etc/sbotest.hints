@@ -1,0 +1,29 @@
+# sbotest.hints
+
+# Use this file to apply hints on a per-script basis for sbotest runs.
+#
+# Commented lines are ignored. There should be no whitespace to the left
+# of any entry.
+
+# Blacklisted scripts will not be added to test queues or removed when
+# running "sbotest --archive-rebuild". List each script on its own line,
+# prepending an exclamation mark:
+#
+# !javacc
+#
+# There may not be any whitespace in blacklist entries.
+
+# To request optional dependencies for a script, place it at the end of
+# a space-delineated list of scripts that should be built first:
+#
+# libcacard libnfs libiscsi qemu
+#
+# There may not be trailing whitespace.
+
+# To rebuild the reverse dependency queue of a script automatically
+# upon upgrade, prepend a tilde. This is useful only for
+# --archive rebuild.
+#
+# ~libmodplug
+#
+# There may not be any whitespace in auto-reverse entries.

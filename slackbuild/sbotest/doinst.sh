@@ -12,3 +12,4 @@ config() {
 }
 
 config etc/sbotest/sbotest.conf.new
+config etc/sbotest/sbotest.hints.new

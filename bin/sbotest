@@ -14,7 +14,7 @@ use 5.016;
 use strict;
 use warnings;
 
-use SBO::Lib qw/ :const :config build_cmp get_arch get_readme_contents get_inst_names get_installed_packages get_sbo_build_number get_sbo_version get_user_group user_group_exist $conf_file get_sbo_location get_all_available get_build_queue get_full_reverse get_reverse_reqs lint_sbo_config on_blacklist slurp update_tree uniq version_cmp @concluded @reverse_concluded error_code usage_error script_error /;
+use SBO::Lib qw/ :const :config auto_reverse build_cmp get_arch get_readme_contents get_inst_names get_installed_packages get_sbo_build_number get_sbo_version get_user_group user_group_exist $conf_file get_sbo_location get_all_available get_build_queue get_full_reverse get_reverse_reqs lint_sbo_config on_blacklist slurp update_tree uniq version_cmp @concluded @reverse_concluded error_code usage_error script_error /;
 
 use Cwd;
 use File::Basename;
@@ -170,8 +170,9 @@ sub get_package_info {
 # - not already installed
 # - build and version match the local repository
 sub install_archived {
-	my ($queue, $sbo_archive, $pkg_dir, $inst_sbos, @to_test) = @_;
+	my ($queue, $sbo_archive, $pkg_dir, @to_test) = @_;
 	my $temp_cwd = getcwd();
+	my $currently_installed = get_inst_names(get_installed_packages('SBO'));
 	if (-d $sbo_archive) {
 		chdir $sbo_archive;
 	} else {
@@ -183,7 +184,7 @@ sub install_archived {
 		next unless -f $ls;
 		next if -f "$pkg_dir/$ls";
 		my ($pkg_name, $pkg_version, $pkg_build) = get_package_info($ls);
-		next if grep { /^$pkg_name$/ } @$inst_sbos;
+		next if grep { /^$pkg_name$/ } @$currently_installed;
 		next unless grep { /^$pkg_name$/ } @$queue;
 		next if grep { /^$pkg_name$/ } @to_test;
 		next unless same_as_repo($pkg_name, $pkg_version, $pkg_build);
@@ -252,7 +253,7 @@ my $cwd = getcwd();
 chomp(my $begin_time = `/usr/bin/date +%Y-%m-%d-%H:%M`);
 chomp(my $start_date = `/usr/bin/date`);
 
-my (@missing, @bad_lint, @bad_pkg_lint, @fail_to_build, @successful, @unsupported);
+my (@missing, @bad_lint, @bad_pkg_lint, @fail_to_build, @successful, @unsupported, @built);
 my $pkg_dir = $config{PKG_DIR} eq 'FALSE' ? "$config{SBO_HOME}/tests/$begin_time-tests" : "$config{PKG_DIR}/$begin_time-tests";
 my $log_dir = $config{LOG_DIR} eq 'FALSE' ? "$config{SBO_HOME}/logs/$begin_time-logs" : "$config{LOG_DIR}/$begin_time-logs";
 my $logfile = "$config{SBO_HOME}/results/$begin_time.log";
@@ -278,8 +279,8 @@ my $arch = get_arch();
 # run will be uninstalled during it
 my $inst_sbos = get_inst_names(get_installed_packages('SBO'));
 
-my (@available, $available, $all_fulldeps, @to_test);
-unless ($single or $archive_rebuild) {
+my (@available, $available, $all_fulldeps, @to_test, @rebuild_target);
+unless ($single) {
 	@available = @{ get_all_available() };
 	$available = +{ map {; $_->{name}, $_->{series} } @available };
 	$all_fulldeps = get_reverse_reqs($available);
@@ -317,7 +318,27 @@ FIRST: for my $sbo (@ARGV) {
 	}
 }
 
-@to_test = find_outdated($config{SBO_ARCHIVE}, $inst_sbos) if $archive_rebuild;
+if ($archive_rebuild and -d $config{SBO_ARCHIVE}) {
+	my @archived_names;
+	chdir $config{SBO_ARCHIVE};
+	opendir(my $dh, $config{SBO_ARCHIVE});
+	REBUILD_CHECK: while (my $ls = readdir $dh) {
+		next REBUILD_CHECK if $ls eq "." or $ls eq "..";
+		my ($pkg_name, $pkg_version, $pkg_build) = get_package_info($ls);
+		push @archived_names, $pkg_name if $pkg_name;
+	}
+	close $dh;
+	chdir $cwd;
+	@archived_names = uniq(@archived_names) if @archived_names;
+	@to_test = find_outdated($config{SBO_ARCHIVE}, $inst_sbos);
+	for my $base (@to_test) {
+		my @to_rebuild = get_full_reverse($base, $available, $all_fulldeps) if auto_reverse($base);
+		for my $rev (@to_rebuild) {
+			push @rebuild_target, $rev;
+			push @to_test, $rev if grep { /^$rev$/ } @archived_names;
+		}
+	}
+}
 
 unless (@to_test) {
 	if ($archive_rebuild) {
@@ -331,6 +352,7 @@ unless (@to_test) {
 	exit;
 }
 @to_test = uniq(sort(@to_test)) if @to_test;
+@rebuild_target = uniq(sort(@rebuild_target)) if @rebuild_target;
 
 SECOND: for my $sbo (@to_test) {
 	my $dir = get_sbo_location($sbo);
@@ -345,7 +367,7 @@ SECOND: for my $sbo (@to_test) {
 	splice @concluded;
 	my $queue = get_build_queue([$sbo], {});
 	clean_packages($inst_sbos, $queue);
-	install_archived($queue, $config{SBO_ARCHIVE}, $pkg_dir, $inst_sbos, @to_test);
+	install_archived($queue, $config{SBO_ARCHIVE}, $pkg_dir, @to_test);
 	push @bad_lint, $sbo unless system("sbolint") == 0;
 	# reinstall anything already built on this
 	# test run...
@@ -357,15 +379,17 @@ SECOND: for my $sbo (@to_test) {
 		my ($pkg_name, $pkg_version, $pkg_build) = get_package_info($ls);
 		my $is_same = same_as_repo($pkg_name, $pkg_version, $pkg_build);
 		# but not if the target itself has already
-		# been built; in that case, skip
-		next SECOND if $pkg_name eq $sbo and $is_same;
+		# been built and does not need an automatic
+		# rebuild; in that case, skip
+		next SECOND if $pkg_name eq $sbo and $is_same and not grep { /^$pkg_name$/ } @rebuild_target;
+		next SECOND if $pkg_name eq $sbo and $is_same and grep { /^$pkg_name$/ } @built;
 		push @to_reinstall, $ls if grep { /^$pkg_name$/ } @$queue and $is_same;
 	}
 	if (@to_reinstall) {
 		my $currently_installed = get_inst_names(get_installed_packages('SBO'));
 		REINSTALL: for my $script (@to_reinstall) {
 			my ($script_name, $script_version, $script_build) = get_package_info($script);
-			next REINSTALL if grep { /^$script_name$/ } @$currently_installed;
+			next REINSTALL if grep { /^$script_name$/ } @$currently_installed or (grep { /^$script_name$/ } @rebuild_target and not grep { /^$script_name$/ } @built);
 			exit _ERR_SCRIPT unless system('/sbin/upgradepkg', '--reinstall', '--install-new', '--terse', $script) == 0;
 		}
 	}
@@ -382,7 +406,11 @@ SECOND: for my $sbo (@to_test) {
 	# this won't catch everything, but at least
 	# it's something
 	exit _ERR_INST_SIGNAL if $res == _ERR_INST_SIGNAL;
-	push @fail_to_build, $sbo unless $res == 0;
+	unless ($res == 0) {
+		push @fail_to_build, $sbo;
+	} else {
+		push @built, $_ for @$queue;
+	}
 }
 
 # for the last run only
