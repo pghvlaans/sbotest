@@ -45,6 +45,10 @@ is a reverse dependency build tester based on the
 sbotools
 library. Called without options, it builds any requested
 SlackBuilds with their first level of reverse dependencies.
+Use
+.B
+sbofind --first-reverse
+for a list of scripts that would be tested, if compatible.
 To test all reverse dependencies of the requested scripts,
 use the
 .B
@@ -160,7 +164,10 @@ for details about setting hints.
 -f|--full-reverse
 .RS
 Test all reverse dependencies for the requested scripts rather than
-the first level only.
+the first level only. Use
+.B
+sbofind --all-reverse
+to see which scripts would be tested, if compatible.
 .RE
 .P
 .B
@@ -503,7 +510,7 @@ None known. If found, Issues and Pull Requests to
 are always welcome.
 .SH SEE ALSO
 .P
-sboinstall(1), sbotools.conf(5), sbotools.hints(5), SBO::Lib(3), SBO::Lib::Build(3), SBO::Lib::Info(3), SBO::Lib::Pkgs(3), SBO::Lib::Repo(3), SBO::Lib::Tree(3), SBO::Lib::Util(3), sbolint(1), sbopkglint(1)
+sbofind(1), sboinstall(1), sbotools.conf(5), sbotools.hints(5), SBO::Lib(3), SBO::Lib::Build(3), SBO::Lib::Info(3), SBO::Lib::Pkgs(3), SBO::Lib::Repo(3), SBO::Lib::Tree(3), SBO::Lib::Util(3), sbolint(1), sbopkglint(1)
 .SH ACKNOWLEDGMENTS
 .B
 Jacob Pipkin\fR\
