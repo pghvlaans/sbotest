@@ -24,6 +24,10 @@ use Getopt::Long qw/ :config no_ignore_case_always bundling /;
 
 my $self = basename($0);
 
+# $sbotest_compatible is exported from SBO::Lib::Util.pm; if
+# it is not present, the sbotools version is too old
+usage_error("The installed sbotools version is incompatible.\n\nUpgrade to 3.7 or 20250601-1735124 at the earliest. Exiting.") unless defined $sbotest_compatible;
+
 my ($help, $version, $pkgdir, $sbo_archive, $jobs, $single, $full_reverse, $logdir, $archive_rebuild, $strict_upgrades);
 
 GetOptions(
@@ -241,9 +245,6 @@ sub same_as_repo {
 	return not_same_as_repo(@_) == 0;
 }
 
-# $sbotest_compatible is exported from SBO::Lib::Util.pm; if
-# it is not present, the sbotools version is too old
-usage_error("The installed version of sbotools is incompatible with sbotest; please upgrade.") unless defined $sbotest_compatible;
 usage_error("sbotools needs to be installed.") unless -x "/usr/sbin/sboconfig";
 usage_error("sbo-maintainer-tools needs to be installed.") unless -x "/usr/bin/sbopkglint";
 usage_error("Must run as root. Exiting.") unless $< == 0;
