@@ -14,7 +14,7 @@ use 5.016;
 use strict;
 use warnings;
 
-use SBO::Lib qw/ :const :config auto_reverse build_cmp get_arch get_readme_contents get_inst_names get_installed_packages get_sbo_build_number get_sbo_version get_user_group user_group_exist $conf_file get_sbo_location get_all_available get_build_queue get_full_reverse get_reverse_reqs lint_sbo_config on_blacklist slurp update_tree uniq version_cmp @concluded @reverse_concluded error_code usage_error script_error /;
+use SBO::Lib qw/ :const :config auto_reverse build_cmp get_arch get_readme_contents get_inst_names get_installed_packages get_sbo_build_number get_sbo_version get_user_group user_group_exist $conf_file get_sbo_location get_all_available get_build_queue get_full_reverse get_reverse_reqs lint_sbo_config on_blacklist slurp update_tree uniq version_cmp @concluded @reverse_concluded error_code usage_error script_error $slackbuilds_txt /;
 
 use Cwd;
 use File::Basename;
@@ -28,7 +28,10 @@ my $self = basename($0);
 # it is not present, the sbotools version is too old
 usage_error("The installed sbotools version is incompatible.\n\nUpgrade to 3.7 or 20250601-1735124 at the earliest. Exiting.") unless defined $sbotest_compatible;
 
-my ($help, $version, $pkgdir, $sbo_archive, $jobs, $single, $full_reverse, $logdir, $archive_rebuild, $strict_upgrades);
+# for --dry-run
+our (@to_remove, @to_reuse);
+
+my ($help, $version, $pkgdir, $sbo_archive, $jobs, $single, $full_reverse, $logdir, $archive_rebuild, $strict_upgrades, $dry_run, $repo, $branch, $pull);
 
 GetOptions(
 	'help|h'              => \$help,
@@ -41,41 +44,59 @@ GetOptions(
 	'log-dir|l=s'         => \$logdir,
 	'archive-rebuild'     => \$archive_rebuild,
 	'strict-upgrades|S=s' => \$strict_upgrades,
+	'dry-run|D'           => \$dry_run,
+	'repo|r=s'            => \$repo,
+	'git-branch|B=s'      => \$branch,
+	'pull|p'              => \$pull,
 );
 
+usage_error("repo must be used with pull. Exiting.") if $repo and not $pull;
+usage_error("git-branch must be used with pull. Exiting.") if $branch and not $pull;
+
 $config{SBO_ARCHIVE} = defined $sbo_archive ? $sbo_archive : $config{SBO_ARCHIVE};
+usage_error("SBO_ARCHIVE must be an abolute path or FALSE. Exiting.") unless $config{SBO_ARCHIVE} =~ m/^(\/|FALSE$)/;
+
 $config{JOBS} = defined $jobs ? $jobs : $config{JOBS};
 $config{PKG_DIR} = defined $pkgdir ? $pkgdir : $config{PKG_DIR};
 $config{LOG_DIR} = defined $logdir ? $logdir : $config{LOG_DIR};
 $config{STRICT_UPGRADES} = defined $strict_upgrades ? $strict_upgrades : $config{STRICT_UPGRADES};
+$config{GIT_BRANCH} = defined $branch ? $branch : $config{GIT_BRANCH};
+$config{REPO} = defined $repo ? $repo : $config{REPO};
 
 show_usage() if $help;
 show_version() if $version;
 
 usage_error("full-reverse is incompatible with single. Exiting.") if $single and $full_reverse;
 
-# in addition to the usual settings, this will also lint
-# SBO_ARCHIVE when called from here
 lint_sbo_config($self, %config);
 
 sub show_usage {
 	print <<"EOF";
+Pull:  $self --pull [-B|-r]
+
+  --git-branch|-B [BRANCH|FALSE]:
+    use this git branch; with FALSE, use the default.
+  --repo|-r [URL|FALSE]:
+    pull from this repository URL; with FALSE, use the default.
+
 Usage: $self [options] sbo ...
        $self [-h|-v]
 
 Options:
-  -h|--help:
+  --help|-h:
     this screen.
-  -v|--version:
+  --version|-v:
     sbotest version information.
+  --dry-run|-D:
+    report on potential operations.
   --full-reverse|-f:
     test the full reverse dependency tree.
   --jobs|-j [FALSE|#]:
     set the number of jobs to use, or ignore the JOBS setting.
   --log-dir|-L [FALSE|/path]:
-    save log files to this path, appending a timestamp.
+    save log files under this path, appending a timestamp.
   --pkg-dir|-k [FALSE|/path]:
-    save built packages to this path, appending a timestamp.
+    save built packages under this path, appending a timestamp.
   --strict-upgrades|-S [FALSE|TRUE]:
     with --archive-rebuild, delete only out-of-date packages.
   --sbo-archive|-a [FALSE|/path]:
@@ -111,7 +132,7 @@ sub clean_packages {
 		if (defined $queue) {
 			next if grep { /^$sbo$/ } @$queue;
 		}
-		exit _ERR_SCRIPT unless system('/sbin/removepkg', '--terse', $sbo) == 0;
+		script_error("removepkg failed.") unless system('/sbin/removepkg', '--terse', $sbo) == 0;
 	}
 }
 
@@ -140,8 +161,13 @@ sub find_outdated {
 		}
 		push @outdated_prelim, $pkg_name;
 		if ($config{STRICT_UPGRADES} eq 'FALSE' or not_same_as_repo($pkg_name, $pkg_version, $pkg_build) lt 0) {
-			say "Unlinking $ls.";
-			unlink $ls;
+			if ($dry_run) {
+				push @to_remove, $ls;
+			}
+			else {
+				say "Unlinking $ls.";
+				unlink $ls;
+			}
 		}
 	}
 	close $dh;
@@ -156,7 +182,7 @@ sub find_outdated {
 # build number
 sub get_package_info {
 	my $pkg_name = shift;
-	exit _ERR_SCRIPT unless defined $pkg_name;
+	script_error("get_package_info requires an argument.") unless defined $pkg_name;
 	my @pkg_string = split '-', $pkg_name;
 	my $pkg_version = $pkg_string[-3];
 	my $pkg_build = $pkg_string[-1];
@@ -192,7 +218,11 @@ sub install_archived {
 		next unless grep { /^$pkg_name$/ } @$queue;
 		next if grep { /^$pkg_name$/ } @to_test;
 		next unless same_as_repo($pkg_name, $pkg_version, $pkg_build);
-		exit _ERR_SCRIPT unless system("/sbin/upgradepkg", "--reinstall", "--install-new", '--terse', $ls) == 0;
+		if ($dry_run) {
+			push @to_reuse, $ls;
+		} else {
+			script_error("upgradepkg failed.") unless system("/sbin/upgradepkg", "--reinstall", "--install-new", '--terse', $ls) == 0;
+		}
 	}
 	close $dh;
 	chdir $temp_cwd;
@@ -248,7 +278,15 @@ sub same_as_repo {
 usage_error("sbotools needs to be installed.") unless -x "/usr/sbin/sboconfig";
 usage_error("sbo-maintainer-tools needs to be installed.") unless -x "/usr/bin/sbopkglint";
 usage_error("Must run as root. Exiting.") unless $< == 0;
-show_usage() unless @ARGV or $archive_rebuild;
+show_usage() unless @ARGV or $archive_rebuild or $pull;
+
+# failed downloads will exit with a code
+if ($pull) {
+	update_tree();
+	exit;
+}
+# --pull reminder if no SLACKBUILDS.TXT
+usage_error("Use \"sbotest --pull\" to fetch the repository. Exiting.") unless -s $slackbuilds_txt;
 
 my $cwd = getcwd();
 chomp(my $begin_time = `/usr/bin/date +%Y-%m-%d-%H:%M`);
@@ -268,11 +306,12 @@ if ($archive_rebuild) {
 	$pkg_dir = $config{SBO_ARCHIVE};
 }
 
-make_path($pkg_dir);
-exit _ERR_SCRIPT unless -d $pkg_dir;
-make_path("$config{SBO_HOME}/results") unless -d "$config{SBO_HOME}/results";
-exit _ERR_SCRIPT unless -d "$config{SBO_HOME}/results";
-die unless update_tree();
+unless ($dry_run) {
+	make_path($pkg_dir);
+	error_code("Creating $pkg_dir failed. Exiting.", _ERR_OPENFH) unless -d $pkg_dir;
+	make_path("$config{SBO_HOME}/results") unless -d "$config{SBO_HOME}/results";
+	error_code("Creating $config{SBO_HOME}/results failed. Exiting.", _ERR_OPENFH) unless -d "$config{SBO_HOME}/results";
+}
 
 my $arch = get_arch();
 
@@ -290,18 +329,20 @@ unless ($single) {
 FIRST: for my $sbo (@ARGV) {
 	last if $archive_rebuild;
 	my $dir = get_sbo_location($sbo);
-	chdir $dir;
 	unless (defined $dir and -d $dir) {
 		push @missing, $sbo;
 		next FIRST;
 	}
+	chdir $dir;
 	unless(is_supported($arch, $dir)) {
 		push @unsupported, $sbo;
 		next FIRST;
 	}
 	next FIRST if on_blacklist($sbo);
 	push @to_test, $sbo;
-	push @bad_lint, $sbo unless system("sbolint") == 0;
+	unless ($dry_run) {
+		push @bad_lint, $sbo unless system("sbolint") == 0;
+	}
 	splice @reverse_concluded;
 	splice @concluded;
 	unless ($single) {
@@ -367,8 +408,11 @@ SECOND: for my $sbo (@to_test) {
 	chdir $dir;
 	splice @concluded;
 	my $queue = get_build_queue([$sbo], {});
-	clean_packages($inst_sbos, $queue);
+	clean_packages($inst_sbos, $queue) unless $dry_run;
 	install_archived($queue, $config{SBO_ARCHIVE}, $pkg_dir, @to_test);
+	# nothing past this point is needed in
+	# --dry-run
+	next SECOND if $dry_run;
 	push @bad_lint, $sbo unless system("sbolint") == 0;
 	# reinstall anything already built on this
 	# test run...
@@ -391,7 +435,7 @@ SECOND: for my $sbo (@to_test) {
 		REINSTALL: for my $script (@to_reinstall) {
 			my ($script_name, $script_version, $script_build) = get_package_info($script);
 			next REINSTALL if grep { /^$script_name$/ } @$currently_installed or (grep { /^$script_name$/ } @rebuild_target and not grep { /^$script_name$/ } @built);
-			exit _ERR_SCRIPT unless system('/sbin/upgradepkg', '--reinstall', '--install-new', '--terse', $script) == 0;
+			script_error("upgradepkg failed.") unless system('/sbin/upgradepkg', '--reinstall', '--install-new', '--terse', $script) == 0;
 		}
 	}
 	# run any required useradd and groupadd
@@ -412,6 +456,25 @@ SECOND: for my $sbo (@to_test) {
 	} else {
 		push @built, $_ for @$queue;
 	}
+}
+
+if ($dry_run) {
+	@to_reuse = uniq(sort(@to_reuse)) if @to_reuse;
+	@to_remove = uniq(sort(@to_remove)) if @to_remove;
+
+	my $message = $archive_rebuild ? "Archive Rebuild Dry Run:" : "Dry Run:";
+	say "$message";
+	say ("\nRequested: ", join(" ", @ARGV)) if @ARGV;
+	say ("\nTo reuse: ", join(" ", @to_reuse)) if @to_reuse;
+	say ("\nMissing: ", join(" ", @missing)) if @missing;
+	say ("\nUnsupported: ", join(" ", @unsupported)) if @unsupported;
+	if ($archive_rebuild) {
+		say ("\nScripts to rebuild:\n  ", join("\n  ", @to_test)) if @to_test;
+		say ("\nTo remove from archive:\n  ", join("\n  ", @to_remove)) if @to_remove;
+	} else {
+		say ("\nScripts to test:\n  ", join("\n  ", @to_test)) if @to_test;
+	}
+	exit;
 }
 
 # for the last run only

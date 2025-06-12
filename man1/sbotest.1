@@ -8,11 +8,13 @@ sbotest
 .P
 sbotest [-h|-v]
 .P
-sbotest [-f|-s] [-j #|FALSE] [-akl /path|FALSE] \\
-        sbo_name (sbo_name)
+sbotest [-B BRANCH|FALSE] [-r URL|FALSE] --pull
 .P
-sbotest [-al /path|FALSE] [-S TRUE|FALSE] --archive-rebuild
-
+sbotest [-f|-s] [-akl /path|FALSE] [-j #|FALSE] \\
+        [-D] sbo_name (sbo_name)
+.P
+sbotest [-al /path|FALSE] [-B BRANCH|FALSE] [-r URL|FALSE] \\
+        [-S TRUE|FALSE] [-D] --archive-rebuild
 .SH DISCLAIMER
 .P
 .B
@@ -43,11 +45,31 @@ sbotest
 is a reverse dependency build tester based on the
 .B
 sbotools
-library. Called without options, it builds any requested
+library. To fetch or update the repository before testing, call
+.B
+sbotest --pull\fR\
+\&. Select a git branch and repository URL by editing
+.I
+/etc/sbotest/sbotest.conf
+or passing
+.B
+--git-branch
+and
+.B
+--repo\fR\
+\&.
+.P
+Called without options,
+.B
+sbotest
+builds any requested
 SlackBuilds with their first level of reverse dependencies.
 Use
 .B
 sbofind --first-reverse
+or pass
+.B
+--dry-run
 for a list of scripts that would be tested, if compatible.
 To test all reverse dependencies of the requested scripts,
 use the
@@ -120,6 +142,20 @@ TRUE\fR\
 \&, only mismatched packages with lower version or build numbers will be
 removed from the archive. By default, all mismatched packages are removed.
 .P
+To generate a report of potential operations,
+use
+.B
+--dry-run
+with any combination of other options besides
+.B
+--pull\fR\
+\&,
+.B
+--git-branch
+and
+.B
+--repo\fR\
+\&.
 .SH OPTIONS
 .P
 .B
@@ -161,12 +197,41 @@ for details about setting hints.
 .RE
 .P
 .B
+-B|--git-branch
+.RS
+If
+.B
+FALSE\fR\
+\&, use the default git branch for the running version of Slackware. If
+a
+.B
+branch name\fR\
+\&, use it in case of a git repository. Must be used with
+.B
+--pull\fR\
+\&.
+.RE
+.P
+.B
+-D|--dry-run
+.RS
+Pull the upstream repository and generate a report on scripts to be tested
+and archived packages to be reused. In case of
+.B
+--archive-rebuild\fR\
+\&, additionally report archived packages to be removed.
+.RE
+.P
+.B
 -f|--full-reverse
 .RS
 Test all reverse dependencies for the requested scripts rather than
 the first level only. Use
 .B
 sbofind --all-reverse
+or pass
+.B
+--dry-run
 to see which scripts would be tested, if compatible.
 .RE
 .P
@@ -244,6 +309,22 @@ logs to that directory with a timestamp appended.
 .RE
 .P
 .B
+-r|--repo
+.RS
+If
+.B
+FALSE\fR\
+\&, use the default repository URL for the running Slackware version.
+If a
+.B
+URL\fR\
+\&, pull from that URL. Must be used with
+.B
+--pull\fR\
+\&.
+.RE
+.P
+.B
 -S|--strict-upgrades
 .RS
 If
@@ -265,7 +346,10 @@ the setting in
 There are three basic ways to test scripts with
 .B
 sbotest\fR\
-\&.
+\&. After using
+.B
+sbotest --pull
+to retrieve a new branch or the latest updates:
 .RS
 .IP \[bu] 3n
 Test against the upstream repository without changes.
