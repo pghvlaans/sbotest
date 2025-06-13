@@ -118,7 +118,7 @@ Must be used with **\--pull**.
 **-D\|\--dry-run**
 
 Pull the upstream repository and generate a report on scripts to be
-tested and archived packages to be reused. In case of
+tested and the number of archived packages to be reused. In case of
 **\--archive-rebuild**, additionally report archived packages to be
 removed.
 

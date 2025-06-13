@@ -465,9 +465,12 @@ if ($dry_run) {
 	my $message = $archive_rebuild ? "Archive Rebuild Dry Run:" : "Dry Run:";
 	say "$message";
 	say ("\nRequested: ", join(" ", @ARGV)) if @ARGV;
-	say ("\nTo reuse: ", join(" ", @to_reuse)) if @to_reuse;
 	say ("\nMissing: ", join(" ", @missing)) if @missing;
 	say ("\nUnsupported: ", join(" ", @unsupported)) if @unsupported;
+	if (@to_reuse) {
+		my $reuse_number = @to_reuse;
+		say "\nTo reuse $reuse_number from $config{SBO_ARCHIVE}.";
+	}
 	if ($archive_rebuild) {
 		say ("\nScripts to rebuild:\n  ", join("\n  ", @to_test)) if @to_test;
 		say ("\nTo remove from archive:\n  ", join("\n  ", @to_remove)) if @to_remove;
