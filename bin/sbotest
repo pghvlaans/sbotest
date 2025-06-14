@@ -14,7 +14,7 @@ use 5.016;
 use strict;
 use warnings;
 
-use SBO::Lib qw/ :const :config auto_reverse build_cmp get_arch get_readme_contents get_inst_names get_installed_packages get_sbo_build_number get_sbo_version get_user_group user_group_exist $conf_file get_sbo_location get_all_available get_build_queue get_full_reverse get_reverse_reqs lint_sbo_config on_blacklist slurp update_tree uniq version_cmp @concluded @reverse_concluded error_code usage_error script_error $slackbuilds_txt /;
+use SBO::Lib qw/ :const :config auto_reverse build_cmp get_arch get_readme_contents get_inst_names get_installed_packages get_sbo_build_number get_sbo_version get_user_group user_group_exist $conf_file get_sbo_location get_all_available get_build_queue get_full_reverse get_reverse_reqs is_local lint_sbo_config on_blacklist slurp update_tree uniq version_cmp @concluded @reverse_concluded error_code usage_error script_error $slackbuilds_txt /;
 
 use Cwd;
 use File::Basename;
@@ -29,7 +29,7 @@ my $self = basename($0);
 usage_error("The installed sbotools version is incompatible.\n\nUpgrade to 3.7 or 20250601-1735124 at the earliest. Exiting.") unless defined $sbotest_compatible;
 
 # for --dry-run
-our (@to_remove, @to_reuse);
+our (@to_remove, @to_reuse, @in_overrides);
 
 my ($help, $version, $pkgdir, $sbo_archive, $jobs, $single, $full_reverse, $logdir, $archive_rebuild, $strict_upgrades, $dry_run, $repo, $branch, $pull);
 
@@ -407,6 +407,11 @@ SECOND: for my $sbo (@to_test) {
 	my $queue = get_build_queue([$sbo], {});
 	clean_packages($inst_sbos, $queue) unless $dry_run;
 	install_archived($queue, $config{SBO_ARCHIVE}, $pkg_dir, @to_test);
+	if ($dry_run) {
+		for my $cand (@$queue) {
+			push @in_overrides, $cand if is_local($cand) and not grep { /^$cand$/ } @to_reuse;
+		}
+	}
 	# nothing past this point is needed in
 	# --dry-run
 	next SECOND if $dry_run;
@@ -458,12 +463,15 @@ SECOND: for my $sbo (@to_test) {
 if ($dry_run) {
 	@to_reuse = uniq(sort(@to_reuse)) if @to_reuse;
 	@to_remove = uniq(sort(@to_remove)) if @to_remove;
+	@in_overrides = uniq(sort(@in_overrides)) if @in_overrides;
+	@to_test = sort(@to_test) if @to_test;
 
 	my $message = $archive_rebuild ? "Archive Rebuild Dry Run:" : "Dry Run:";
 	say "$message";
 	say ("\nRequested: ", join(" ", @ARGV)) if @ARGV;
 	say ("\nMissing: ", join(" ", @missing)) if @missing;
 	say ("\nUnsupported: ", join(" ", @unsupported)) if @unsupported;
+	say ("\nOverrides: ", join(" ", @in_overrides)) if @in_overrides;
 	if (@to_reuse) {
 		my $reuse_number = @to_reuse;
 		say "\nTo reuse $reuse_number from $config{SBO_ARCHIVE}.";
