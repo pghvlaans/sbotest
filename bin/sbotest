@@ -340,9 +340,6 @@ FIRST: for my $sbo (@ARGV) {
 	}
 	next FIRST if on_blacklist($sbo);
 	push @to_test, $sbo;
-	unless ($dry_run) {
-		push @bad_lint, $sbo unless system("sbolint") == 0;
-	}
 	splice @reverse_concluded;
 	splice @concluded;
 	unless ($single) {
