@@ -10,11 +10,14 @@ sbotest [-h|-v]
 .P
 sbotest [-B BRANCH|FALSE] [-r URL|FALSE] --pull
 .P
+sbotest [--config|--hints] ...
+.P
 sbotest [-f|-s] [-akl /path|FALSE] [-j #|FALSE] \\
         [-D] sbo_name (sbo_name)
 .P
 sbotest [-al /path|FALSE] [-B BRANCH|FALSE] [-r URL|FALSE] \\
         [-S TRUE|FALSE] [-D] --archive-rebuild
+.P
 .SH DISCLAIMER
 .P
 .B
@@ -58,6 +61,21 @@ and
 .B
 --repo\fR\
 \&.
+.B
+sbotest
+is also configurable at the command line with
+.B
+--config\fR\
+\&, and per-script hints can be applied with
+.B
+--hints\fR\
+\&. See
+.B
+sboconfig(1)
+and
+.B
+sbohints(1)
+for more details.
 .P
 Called without options,
 .B
@@ -197,6 +215,51 @@ for details about setting hints.
 .RE
 .P
 .B
+--config
+.RS
+Interface with
+.B
+sboconfig(1)
+to modify settings. All
+.B
+sboconfig
+options can be used, with the addition of
+.B
+--sbo-archive\fR\
+\&. See
+.B
+CONFIGURATION
+below.
+.RE
+.P
+.B
+--hints
+.RS
+Interface with
+.B
+sbohints(1)
+to modify per-script hints. All
+.B
+sbohints
+options can be used.
+.RE
+.P
+.B
+--pull
+.RS
+Fetch the upstream repository to
+.I
+SBO_HOME/repo\fR\
+\&. Flags other than
+.B
+--git-branch
+and
+.B
+--repo
+have no effect.
+.RE
+.P
+.B
 -B|--git-branch
 .RS
 If
@@ -215,9 +278,9 @@ branch name\fR\
 .B
 -D|--dry-run
 .RS
-Pull the upstream repository and generate a report on scripts to be tested,
-queued packages in the local overrides directory and the number of archived
-packages to be reused. In case of
+Generate a report on scripts to be tested, queued packages in the local
+overrides directory and the number of archived packages to be reused. In
+case of
 .B
 --archive-rebuild\fR\
 \&, additionally report archived packages to be removed.
@@ -380,7 +443,16 @@ GIT_BRANCH
 to the name of the branch and ensure that
 .B
 REPO
-is set if non-default. From here, run
+is set if non-default. Alternatively, specify with the
+.B
+--repo
+and
+.B
+--git-branch
+options when running
+.B
+sbotest --pull\fR\
+\&. From here, run
 .B
 sbotest\fR\
 \&. If multiple scripts are to be tested for submission,
@@ -436,6 +508,14 @@ variable
 .I
 SBOTEST_CONF_DIR\fR\
 \&.
+.P
+Configuration options and hints can be set from the command line with
+.B
+--config
+and
+.B
+--hints\fR\
+\&, respectively.
 .P
 Several default settings differ from base
 .B

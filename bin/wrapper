@@ -1,7 +1,22 @@
 #!/usr/bin/perl
+#
+# vim: ts=4:noet
+#
+# sbotest (wrapper script)
+# sbotools-based reverse dependency build tester
+#
+# author: K. Eugene Carlson <kvngncrlsn@gmail.com>
+# license: MIT License
 
+use 5.16.0;
 use strict;
 use warnings;
+
+my $util_pm = "/usr/share/perl5/vendor_perl/SBO/Lib/Util.pm";
+unless (-f $util_pm) {
+	say "sbotools must be installed. Exiting.";
+	exit 1;
+}
 
 # the following ENV variables must be set first
 
@@ -13,4 +28,48 @@ my $test_conf_dir = defined $test_conf_req ? $test_conf_req : "/etc/sbotest";
 $ENV{SBOTOOLS_CONF_DIR} = $test_conf_dir;
 $ENV{SBOTEST_MODE} = 1;
 
-system("/usr/libexec/sbotest", @ARGV);
+my ($config, $hints, @SVARG);
+for my $arg (@ARGV) {
+	if ($arg eq '--config') {
+		$config = 1;
+		next;
+	}
+	if ($arg eq '--hints') {
+		$hints = 1;
+		next;
+	}
+	push @SVARG, $arg;
+}
+
+if ($config and $hints) {
+	say "--config and --hints cannot be used together.";
+	exit 1;
+}
+
+# --config and --hints were added after the initial
+# compatibility commits in sbotools, but before the
+# release of version 3.7
+if ($config or $hints) {
+	my $fh;
+	unless (open $fh, '<', $util_pm) {
+		say "Failed to open $util_pm for reading.";
+		exit 6;
+	}
+	my $is_compatible;
+	for my $line (<$fh>) {
+		if ($line eq "#% SBOTEST CONFIG HINTS %\n") { $is_compatible = 1; last; }
+	}
+	close $fh;
+	unless ($is_compatible) {
+		say "This version of sbotools is incompatible with --config and --hints.\nUpgrade sbotools to at least 3.7 or 20250616-0d4e3dd.";
+		exit 1;
+	}
+}
+
+if ($config) {
+	system("/usr/sbin/sboconfig", @SVARG);
+} elsif ($hints) {
+	system("/usr/sbin/sbohints", @SVARG);
+} else {
+	system("/usr/libexec/sbotest", @SVARG);
+}

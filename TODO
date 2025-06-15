@@ -1,8 +1,6 @@
 A few more things to do before a version release:
 
-* Command line interface to edit sbotest.conf and sbotest.hints.
-  * Will require an sbotools compatibility bump, and this is the right
-    time to do it.
+* Add one or more options for automatically archiving built packages.
 * Make sure the man page and README.md are ready to go.
 * Release sbotools-3.7 (a compatible release is needed before anyone
   who doesn't install from sbotools-git-slackbuild can use this).

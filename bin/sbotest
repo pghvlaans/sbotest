@@ -26,7 +26,7 @@ my $self = basename($0);
 
 # $sbotest_compatible is exported from SBO::Lib::Util.pm; if
 # it is not present, the sbotools version is too old
-usage_error("The installed sbotools version is incompatible.\n\nUpgrade to 3.7 or 20250601-1735124 at the earliest. Exiting.") unless defined $sbotest_compatible;
+usage_error("The installed sbotools version is incompatible.\n\nUpgrade to 3.7 or 20250615-0d4e3dd at the earliest. Exiting.") unless defined $sbotest_compatible;
 
 # for --dry-run
 our (@to_remove, @to_reuse, @in_overrides);

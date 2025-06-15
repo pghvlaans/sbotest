@@ -4,13 +4,15 @@
 
 This **sbotools** extension was written with script maintainers in mind: Easily build and test scripts with their reverse dependencies in a single command. Copy built packages into an archive to be used again, and keep it up-to-date with **sbotest --archive-rebuild**.
 
+**sbotest** is configured separately from **sbotools**. See the contents of `/etc/sbotest`, or run **sbotest --config** and **sbotest --hints** to set options from the command line.
+
 See the man page for more information about options and settings!
 
 ## Trying sbotest
 
 **sbotest** is not quite ready for a version release, which needs to wait for **sbotools-3.7**. In the meantime, please follow these steps if you would like to try **sbotest**:
 
-* Use **[sbotools-git-slackbuild](https://github.com/pghvlaans/sbotools-git-slackbuild/)** to upgrade **sbotools** to version `20250601-1735124` at the oldest.
+* Use **[sbotools-git-slackbuild](https://github.com/pghvlaans/sbotools-git-slackbuild/)** to upgrade **sbotools** to version `20250616-0d4e3dd` at the oldest.
 * Clone the **sbotest** repository.
 * From the root directory, run `./tools/source_to_slackbuild.sh`.
 * Run the SlackBuild in `slackbuild/sbotest`.
