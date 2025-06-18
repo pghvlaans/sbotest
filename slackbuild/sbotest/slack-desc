@@ -11,9 +11,9 @@ sbotest:
 sbotest: sbotest uses the sbotools library and sbo-maintainer-tools to build
 sbotest: and test SlackBuilds and their reverse dependencies.
 sbotest:
-sbotest: sbotest is intended to be run on a virtual machine or Docker image;
-sbotest: using sbotest on a general-purpose Slackware installation is not
-sbotest: recommended.
+sbotest: sbotest is intended to be run in a clean build environment. Using
+sbotest: sbotest on a general-purpose Slackware installation is unsupported and
+sbotest: unadvisable.
 sbotest:
 sbotest: Homepage: https://pghvlaans.github.io/sbotools/sbotest/
 sbotest: Author: K. Eugene Carlson

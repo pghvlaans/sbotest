@@ -2,7 +2,7 @@
 
 **[sbotest](https://pghvlaans.github.io/sbotools/sbotest/)** is a reverse dependency build tester based on the **[sbotools](https://pghvlaans.github.io/sbotools/)** library.
 
-This **sbotools** extension was written with script maintainers in mind: Easily build and test scripts with their reverse dependencies in a single command. Copy built packages into an archive to be used again, and keep it up-to-date with **sbotest --archive-rebuild**.
+This **sbotools** companion script was written with script maintainers in mind: Easily build and test scripts with their reverse dependencies in a single command. Maintain an archive for built dependencies and keep it up-to-date with **sbotest --archive-rebuild**.
 
 **sbotest** is configured separately from **sbotools**. See the contents of `/etc/sbotest`, or run **sbotest --config** and **sbotest --hints** to set options from the command line.
 

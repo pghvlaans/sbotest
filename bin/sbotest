@@ -31,13 +31,13 @@ usage_error("The installed sbotools version is incompatible.\n\nUpgrade to 3.7 o
 # for --dry-run
 our (@to_remove, @to_reuse, @in_overrides);
 
-my ($help, $version, $pkgdir, $sbo_archive, $jobs, $single, $full_reverse, $logdir, $archive_rebuild, $strict_upgrades, $dry_run, $repo, $branch, $pull);
+my ($help, $version, $pkgdir, $sbo_archive, $jobs, $single, $full_reverse, $logdir, $archive_rebuild, $strict_upgrades, $dry_run, $repo, $branch, $pull, $no_archive, $archive_force);
 
 GetOptions(
 	'help|h'              => \$help,
 	'version|v'           => \$version,
 	'pkg-dir|k=s'         => \$pkgdir,
-	'sbo-archive|a=s'     => \$sbo_archive,
+	'sbo-archive|A=s'     => \$sbo_archive,
 	'full-reverse|f'      => \$full_reverse,
 	'single|s'            => \$single,
 	'jobs|j=s'            => \$jobs,
@@ -48,6 +48,8 @@ GetOptions(
 	'repo|r=s'            => \$repo,
 	'git-branch|B=s'      => \$branch,
 	'pull|p'              => \$pull,
+	'no_archive'          => \$no_archive,
+	'archive-force'       => \$archive_force,
 );
 
 usage_error("repo must be used with pull. Exiting.") if $repo and not $pull;
@@ -55,6 +57,7 @@ usage_error("git-branch must be used with pull. Exiting.") if $branch and not $p
 
 $config{SBO_ARCHIVE} = defined $sbo_archive ? $sbo_archive : $config{SBO_ARCHIVE};
 usage_error("SBO_ARCHIVE must be an abolute path or FALSE. Exiting.") unless $config{SBO_ARCHIVE} =~ m/^(\/|FALSE$)/;
+my $archive_dir = $config{SBO_ARCHIVE};
 
 $config{JOBS} = defined $jobs ? $jobs : $config{JOBS};
 $config{PKG_DIR} = defined $pkgdir ? $pkgdir : $config{PKG_DIR};
@@ -67,20 +70,24 @@ show_usage() if $help;
 show_version() if $version;
 
 usage_error("full-reverse is incompatible with single. Exiting.") if $single and $full_reverse;
+usage_error("archive-rebuild, no-archive and archive-force are incompatible. Exiting.") if ($archive_rebuild and ($no_archive or $archive_force)) or ($no_archive and $archive_force);
 
 lint_sbo_config($self, %config);
 
 sub show_usage {
 	print <<"EOF";
-Pull:  $self --pull [-B|-r]
+Pull:      $self --pull [-B|-r]
 
   --git-branch|-B [BRANCH|FALSE]:
     use this git branch; with FALSE, use the default.
   --repo|-r [URL|FALSE]:
     pull from this repository URL; with FALSE, use the default.
 
-Usage: $self [options] sbo ...
-       $self [-h|-v]
+Configure: $self --config [sboconfig options]
+           $self --hints [sbohints options]
+
+Usage:     $self [options] sbo ...
+           $self [-h|-v]
 
 Options:
   --help|-h:
@@ -99,16 +106,22 @@ Options:
     save built packages under this path, appending a timestamp.
   --strict-upgrades|-S [FALSE|TRUE]:
     with --archive-rebuild, delete only out-of-date packages.
-  --sbo-archive|-a [FALSE|/path]:
+  --sbo-archive|-A [FALSE|/path]:
     reinstall saved packages from this path.
   --single|-s:
     do not test reverse dependencies.
   --archive-rebuild:
     replace all outdated packages in the archive.
+  --no-archive:
+    do not save or reuse any packages.
+  --archive-force:
+    additionally save test targets to the archive.
 
 By default, sbotest builds any requested scripts and the first
 level of reverse dependencies, calling /usr/bin/sbopkglint for
-testing after after all builds are completed.
+testing after after all builds are completed. Built packages
+are archived automatically except for test requests and their
+reverse dependencies.
 
 EOF
 	exit 0;
@@ -153,6 +166,7 @@ sub find_outdated {
 		next if $ls eq "." or $ls eq "..";
 		next unless -f $ls;
 		my ($pkg_name, $pkg_version, $pkg_build) = get_package_info($ls);
+		next unless defined $pkg_name;
 		next if grep { /^$pkg_name$/ } @$inst_sbos;
 		next if on_blacklist($pkg_name);
 		unless (not_same_as_repo($pkg_name, $pkg_version, $pkg_build)) {
@@ -179,10 +193,14 @@ sub find_outdated {
 }
 
 # given a package string, returns the name, version and
-# build number
+# build number; if the string does not appear to be an _SBo
+# package, return undef
 sub get_package_info {
 	my $pkg_name = shift;
 	script_error("get_package_info requires an argument.") unless defined $pkg_name;
+	# make sure the string could name a valid SBo package;
+	# see /sbin/makepkg /^# Identify package extension
+	return undef unless $pkg_name =~ m/_SBo(|compat32)\.(t[gxlb]z|tar\.([gxl]z|bz2|lzma))$/;
 	my @pkg_string = split '-', $pkg_name;
 	my $pkg_version = $pkg_string[-3];
 	my $pkg_build = $pkg_string[-1];
@@ -214,6 +232,7 @@ sub install_archived {
 		next unless -f $ls;
 		next if -f "$pkg_dir/$ls";
 		my ($pkg_name, $pkg_version, $pkg_build) = get_package_info($ls);
+		next unless defined $pkg_name;
 		next if grep { /^$pkg_name$/ } @$currently_installed;
 		next unless grep { /^$pkg_name$/ } @$queue;
 		next if grep { /^$pkg_name$/ } @to_test;
@@ -300,17 +319,20 @@ my $logfile = "$config{SBO_HOME}/results/$begin_time.log";
 if ($config{LOCAL_OVERRIDES} ne "FALSE") {
 	usage_error("$config{LOCAL_OVERRIDES} is specified as the overrides directory, but does not exist. Exiting.") unless -d $config{LOCAL_OVERRIDES};
 }
+usage_error("the package and archive directories are the same; archive and archive-force are unneeded. Exiting.") if $archive_force and $pkg_dir eq $archive_dir;
 
 if ($archive_rebuild) {
-	usage_error("$config{SBO_ARCHIVE} does not exist; exiting.") unless -d $config{SBO_ARCHIVE};
-	$pkg_dir = $config{SBO_ARCHIVE};
+	usage_error("$archive_dir does not exist; exiting.") unless -d $archive_dir;
+	$pkg_dir = $archive_dir;
 }
-
 unless ($dry_run) {
 	make_path($pkg_dir);
 	error_code("Creating $pkg_dir failed. Exiting.", _ERR_OPENFH) unless -d $pkg_dir;
 	make_path("$config{SBO_HOME}/results") unless -d "$config{SBO_HOME}/results";
 	error_code("Creating $config{SBO_HOME}/results failed. Exiting.", _ERR_OPENFH) unless -d "$config{SBO_HOME}/results";
+	# this is done after the --archive-rebuild check above because
+	# a nonexistent directory is necessarily empty
+	make_path($archive_dir) unless -d $archive_dir or $no_archive;
 }
 
 my $arch = get_arch();
@@ -357,19 +379,20 @@ FIRST: for my $sbo (@ARGV) {
 	}
 }
 
-if ($archive_rebuild and -d $config{SBO_ARCHIVE}) {
+if ($archive_rebuild and -d $archive_dir) {
 	my @archived_names;
-	chdir $config{SBO_ARCHIVE};
-	opendir(my $dh, $config{SBO_ARCHIVE});
+	chdir $archive_dir;
+	opendir(my $dh, $archive_dir);
 	REBUILD_CHECK: while (my $ls = readdir $dh) {
 		next REBUILD_CHECK if $ls eq "." or $ls eq "..";
 		my ($pkg_name, $pkg_version, $pkg_build) = get_package_info($ls);
+		next REBUILD_CHECK unless defined $pkg_name;
 		push @archived_names, $pkg_name if $pkg_name;
 	}
 	close $dh;
 	chdir $cwd;
 	@archived_names = uniq(@archived_names) if @archived_names;
-	@to_test = find_outdated($config{SBO_ARCHIVE}, $inst_sbos);
+	@to_test = find_outdated($archive_dir, $inst_sbos);
 	for my $base (@to_test) {
 		my @to_rebuild = get_full_reverse($base, $available, $all_fulldeps) if auto_reverse($base);
 		for my $rev (@to_rebuild) {
@@ -406,7 +429,7 @@ SECOND: for my $sbo (@to_test) {
 	splice @concluded;
 	my $queue = get_build_queue([$sbo], {});
 	clean_packages($inst_sbos, $queue) unless $dry_run;
-	install_archived($queue, $config{SBO_ARCHIVE}, $pkg_dir, @to_test);
+	install_archived($queue, $archive_dir, $pkg_dir, @to_test) unless $no_archive;
 	if ($dry_run) {
 		for my $cand (@$queue) {
 			push @in_overrides, $cand if is_local($cand) and not grep { /^$cand$/ } @to_reuse;
@@ -424,6 +447,7 @@ SECOND: for my $sbo (@to_test) {
 	PKG_CHECK: while (my $ls = readdir $dh) {
 		next PKG_CHECK if $ls eq "." or $ls eq "..";
 		my ($pkg_name, $pkg_version, $pkg_build) = get_package_info($ls);
+		next PKG_CHECK unless defined $pkg_name;
 		my $is_same = same_as_repo($pkg_name, $pkg_version, $pkg_build);
 		# but not if the target itself has already
 		# been built and does not need an automatic
@@ -432,9 +456,11 @@ SECOND: for my $sbo (@to_test) {
 		next SECOND if $pkg_name eq $sbo and $is_same and grep { /^$pkg_name$/ } @built;
 		push @to_reinstall, $ls if grep { /^$pkg_name$/ } @$queue and $is_same;
 	}
+	close $dh;
 	if (@to_reinstall) {
 		my $currently_installed = get_inst_names(get_installed_packages('SBO'));
 		REINSTALL: for my $script (@to_reinstall) {
+			# validity of package file name already done
 			my ($script_name, $script_version, $script_build) = get_package_info($script);
 			next REINSTALL if grep { /^$script_name$/ } @$currently_installed or (grep { /^$script_name$/ } @rebuild_target and not grep { /^$script_name$/ } @built);
 			script_error("upgradepkg failed.") unless system('/sbin/upgradepkg', '--reinstall', '--install-new', '--terse', $script) == 0;
@@ -458,6 +484,22 @@ SECOND: for my $sbo (@to_test) {
 	} else {
 		push @built, $_ for @$queue;
 	}
+	next if $no_archive;
+	# archive built packages; dependencies only by
+	# default, or all with --archive-force
+	chdir $pkg_dir;
+	opendir($dh, $pkg_dir);
+	while (my $ls = readdir $dh) {
+		next if $ls eq '.' or $ls eq '..';
+		my ($pkg_name, $pkg_version, $pkg_build) = get_package_info($ls);
+		next unless defined $pkg_name;
+		my $is_same = same_as_repo($pkg_name, $pkg_version, $pkg_build);
+		if ($is_same and ($archive_force or not grep { /^$pkg_name$/ } @to_test)) {
+			say "Archiving $ls.";
+			move $ls, "$archive_dir/$ls";
+		}
+	}
+	close $dh;
 }
 
 if ($dry_run) {
@@ -474,7 +516,7 @@ if ($dry_run) {
 	say ("\nOverrides: ", join(" ", @in_overrides)) if @in_overrides;
 	if (@to_reuse) {
 		my $reuse_number = @to_reuse;
-		say "\nTo reuse $reuse_number from $config{SBO_ARCHIVE}.";
+		say "\nTo reuse $reuse_number from $archive_dir.";
 	}
 	if ($archive_rebuild) {
 		say ("\nScripts to rebuild:\n  ", join("\n  ", @to_test)) if @to_test;
@@ -495,6 +537,7 @@ opendir(my $dh, $pkg_dir);
 TESTING: while (my $ls = readdir $dh) {
 	next TESTING if $ls eq "." or $ls eq "..";
 	my ($pkg_name, $pkg_version, $pkg_build) = get_package_info($ls);
+	next TESTING unless defined $pkg_name;
 	next TESTING unless grep { /^$pkg_name$/ } @to_test;
 	next TESTING unless same_as_repo($pkg_name, $pkg_version, $pkg_build);
 	my $log_name = "$log_dir/sbopkglint_$pkg_name";

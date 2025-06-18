@@ -12,10 +12,10 @@ sbotest [-B BRANCH|FALSE] [-r URL|FALSE] --pull
 .P
 sbotest [--config|--hints] ...
 .P
-sbotest [-f|-s] [-akl /path|FALSE] [-j #|FALSE] \\
-        [-D] sbo_name (sbo_name)
+sbotest [-f|-s] [-Akl /path|FALSE] [-j #|FALSE] \\
+        [-D] [--no-archive|--archive-force] sbo_name (sbo_name)
 .P
-sbotest [-al /path|FALSE] [-B BRANCH|FALSE] [-r URL|FALSE] \\
+sbotest [-Al /path|FALSE] [-B BRANCH|FALSE] [-r URL|FALSE] \\
         [-S TRUE|FALSE] [-D] --archive-rebuild
 .P
 .SH DISCLAIMER
@@ -54,7 +54,7 @@ sbotest --pull\fR\
 \&. Select a git branch and repository URL by editing
 .I
 /etc/sbotest/sbotest.conf
-or passing
+or, temporarily, by passing
 .B
 --git-branch
 and
@@ -116,7 +116,16 @@ is called.
 Newly-built packages are saved to a timestamp-appended
 .B
 PKG_DIR\fR\
-\&. Any packages that are not required for the following build
+\&. By default, any dependencies (not test targets) built are saved to
+.B
+SBO_ARCHIVE
+for future use; to change this, see
+.B
+--no-archive
+and
+.B
+--archive-force
+below. Any packages that are not required for the following build
 are removed afterwards. Packages without the
 .I
 _SBo
@@ -146,25 +155,17 @@ issues can be taken care of before submitting scripts to
 SlackBuilds.org\fR\
 \&.
 .P
-The package archive can be kept current with
-.B
---archive-rebuild\fR\
-\&, which rebuilds all version- and build-mismatched packages in the
-archive, provided that they are not installed or on the blacklist.
-If
-.B
-STRICT_UPGRADES
-is
-.B
-TRUE\fR\
-\&, only mismatched packages with lower version or build numbers will be
-removed from the archive. By default, all mismatched packages are removed.
-.P
 To generate a report of potential operations,
 use
 .B
 --dry-run
 with any combination of other options besides
+.B
+--config\fR\
+\&,
+.B
+--hints\fR\
+\&,
 .B
 --pull\fR\
 \&,
@@ -201,7 +202,7 @@ STRICT_UPGRADES
 is
 .B
 TRUE\fR\
-\&, only mismatched packages with lower version or build numbers will be
+\&, only mismatched packages with lower version or build numbers are
 removed from the archive.
 .P
 If a script to be rebuilt has an automatic reverse dependency rebuild
@@ -212,6 +213,14 @@ request in
 .B
 sbotools.hints(5)
 for details about setting hints.
+.P
+Incompatible with
+.B
+--no-archive
+and
+.B
+--archive-force\fR\
+\&.
 .RE
 .P
 .B
@@ -260,6 +269,42 @@ have no effect.
 .RE
 .P
 .B
+-A|--sbo-archive
+.RS
+If
+.B
+FALSE\fR\
+\&, use the default archive directory at
+.I
+SBO_HOME/archive\fR\
+\&. If an
+.B
+absolute path\fR\
+\&, use that as the archive directory.
+.RE
+.P
+.B
+--archive-force
+.RS
+When testing the requested scripts, move all built packages into
+.B
+SBO_ARCHIVE\fR\
+\&,
+.I
+/usr/sbotest/archive
+by default. This includes even requested scripts and their reverse
+dependencies.
+.P
+Incompatible with
+.B
+--archive-rebuild
+and
+.B
+---no-archive\fR\
+\&.
+.RE
+.P
+.B
 -B|--git-branch
 .RS
 If
@@ -303,21 +348,6 @@ to see which scripts would be tested, if compatible.
 -s|--single
 .RS
 Do not test reverse dependencies for any requested script.
-.RE
-.P
-.B
--a|--sbo-archive
-.RS
-If
-.B
-FALSE\fR\
-\&, use the default archive directory at
-.I
-SBO_HOME/archive\fR\
-\&. If an
-.B
-absolute path\fR\
-\&, use that as the archive directory.
 .RE
 .P
 .B
@@ -370,6 +400,21 @@ absolute path\fR\
 .B
 sbopkglint(1)
 logs to that directory with a timestamp appended.
+.RE
+.P
+.B
+--no-archive
+.RS
+Do not reuse any archived packages during the test run, and do
+not archive built packages.
+.P
+Incompatible with
+.B
+--archive-rebuild
+and
+.B
+--archive-force\fR\
+\&.
 .RE
 .P
 .B
@@ -481,11 +526,32 @@ The default archive directory is
 .I
 /usr/sbotest/archive\fR\
 \&; packages stored here are reinstalled in lieu of building
-when needed, provided they are up-to-date. Copy packages from the test
-directories under (by default)
-.I
-/usr/sbotest/tests
-to use them again later.
+when needed, provided they are up-to-date. During an
+.B
+sbotest
+run, all built dependencies are archived by default. To archive
+all built packages (including testing targets), use
+.B
+--archive-force\fR\
+\&. Ignore the archive altogether with
+.B
+--no-archive\fR\
+\&.
+.P
+The archive can be kept current with
+.B
+--archive-rebuild\fR\
+\&. This rebuilds all version- and build-mismatched packages in the
+archive, provided that they are not installed or on the blacklist.
+If
+.B
+STRICT_UPGRADES
+is
+.B
+TRUE\fR\
+\&, only mismatched packages with lower version or build numbers are
+removed from the archive. By default, all mismatched packages are removed.
+.P
 .SH CONFIGURATION
 The default configuration directory is
 .I
@@ -565,7 +631,7 @@ SBO_HOME/tests\fR\
 \&. Unless an
 .B
 absolute path
-is specified, packages built during the test run will be saved
+is specified, packages built during the test run are saved
 to a timestamp-designated directory under that path, e.g.
 .I
 /usr/sbotest/tests/2025-05-31-16:27-tests\fR\
@@ -581,7 +647,7 @@ SBO_HOME/logs\fR\
 \&. Unless an
 .B
 absolute path
-is specified, log files will be saved to a timestamp-designated
+is specified, log files are saved to a timestamp-designated
 directory under that path.
 .RE
 .P
@@ -594,7 +660,7 @@ sbotest\fR\
 \&, and has a default value of
 .I
 SBO_HOME/archive\fR\
-\&. Any packages stored here will be installed prior to calling
+\&. Any packages stored here are installed prior to calling
 .B
 sboinstall(1)\fR\
 \&, provided that they:
