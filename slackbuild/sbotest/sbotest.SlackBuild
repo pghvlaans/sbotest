@@ -60,9 +60,14 @@ find -L . \
   -o -perm 440 -o -perm 400 \) -exec chmod 644 {} \;
 
 mkdir -p $PKG/usr/sbin \
+         $PKG/usr/bin \
          $PKG/usr/libexec
 install -m 0755 bin/wrapper $PKG/usr/sbin/sbotest
 install -m 0755 bin/sbotest $PKG/usr/libexec
+(
+cd $PKG/usr/bin
+ln -s ../sbin/sbotest $PKG/usr/bin
+)
 
 mkdir -p $PKG/usr/man/man1
 install -m 0644 man1/* $PKG/usr/man/man1

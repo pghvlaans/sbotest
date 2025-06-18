@@ -52,6 +52,7 @@ GetOptions(
 	'archive-force'       => \$archive_force,
 );
 
+usage_error("Non-root users can only call sbotest with -h, -v, -D and listing options. Exiting.") unless $< == 0 or $dry_run or $help or $version;
 usage_error("repo must be used with pull. Exiting.") if $repo and not $pull;
 usage_error("git-branch must be used with pull. Exiting.") if $branch and not $pull;
 
@@ -296,7 +297,6 @@ sub same_as_repo {
 
 usage_error("sbotools needs to be installed.") unless -x "/usr/sbin/sboconfig";
 usage_error("sbo-maintainer-tools needs to be installed.") unless -x "/usr/bin/sbopkglint";
-usage_error("Must run as root. Exiting.") unless $< == 0;
 show_usage() unless @ARGV or $archive_rebuild or $pull;
 
 # failed downloads will exit with a code
