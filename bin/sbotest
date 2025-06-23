@@ -14,7 +14,7 @@ use 5.016;
 use strict;
 use warnings;
 
-use SBO::Lib qw/ :const :config auto_reverse build_cmp get_arch get_readme_contents get_inst_names get_installed_packages get_sbo_build_number get_sbo_version get_user_group user_group_exist $conf_file get_sbo_location get_all_available get_build_queue get_full_reverse get_reverse_reqs is_local lint_sbo_config on_blacklist slurp update_tree uniq version_cmp @concluded @reverse_concluded error_code usage_error script_error $slackbuilds_txt /;
+use SBO::Lib qw/ :config :const auto_reverse build_cmp get_arch get_readme_contents get_inst_names get_installed_packages get_sbo_build_number get_sbo_version get_user_group user_group_exist $conf_file get_sbo_location get_all_available get_build_queue get_full_reverse get_reverse_reqs is_local lint_sbo_config on_blacklist slurp update_tree uniq version_cmp error_code usage_error script_error @concluded @reverse_concluded $slackbuilds_txt /;
 
 use Cwd;
 use File::Basename;
@@ -143,9 +143,7 @@ sub clean_packages {
 	my $current_sbos = get_inst_names(get_installed_packages('SBO'));
 	for my $sbo (@$current_sbos) {
 		next if grep { /^$sbo$/ } @$inst_sbos;
-		if (defined $queue) {
-			next if grep { /^$sbo$/ } @$queue;
-		}
+		if (defined $queue) { next if grep { /^$sbo$/ } @$queue; }
 		script_error("removepkg failed.") unless system('/sbin/removepkg', '--terse', $sbo) == 0;
 	}
 }
@@ -241,7 +239,7 @@ sub install_archived {
 		if ($dry_run) {
 			push @to_reuse, $ls;
 		} else {
-			script_error("upgradepkg failed.") unless system("/sbin/upgradepkg", "--reinstall", "--install-new", '--terse', $ls) == 0;
+			script_error("upgradepkg failed.") unless system('/sbin/upgradepkg', '--reinstall', '--install-new', '--terse', $ls) == 0;
 		}
 	}
 	close $dh;
@@ -373,9 +371,7 @@ FIRST: for my $sbo (@ARGV) {
 				push @available_reverse, $sbo2 if $all_fulldeps->{$sbo}->{$sbo2};
 			}
 		}
-		for my $target (uniq(@available_reverse)) {
-			push @to_test, $target;
-		}
+		for my $target (uniq(@available_reverse)) { push @to_test, $target; }
 	}
 }
 
@@ -403,10 +399,7 @@ if ($archive_rebuild and -d $archive_dir) {
 }
 
 unless (@to_test) {
-	if ($archive_rebuild) {
-		say "All archived packages installed or up-to-date.";
-		exit;
-	}
+	if ($archive_rebuild) { say "All archived packages installed or up-to-date."; exit; }
 	say "No testing to do.";
 	say ("\nRequested:\n  ", join("\n  ", @ARGV)) unless $archive_rebuild;
 	say ("\nUnsupported:\n  ", join("\n  ", @unsupported)) if @unsupported;
@@ -438,7 +431,7 @@ SECOND: for my $sbo (@to_test) {
 	# nothing past this point is needed in
 	# --dry-run
 	next SECOND if $dry_run;
-	push @bad_lint, $sbo unless system("sbolint") == 0;
+	push @bad_lint, $sbo unless system('sbolint') == 0;
 	# reinstall anything already built on this
 	# test run...
 	chdir $pkg_dir;
@@ -473,9 +466,12 @@ SECOND: for my $sbo (@to_test) {
 		my $readme = get_readme_contents($location);
 		next UGCHECK unless defined $readme;
 		my $cmds = get_user_group($readme, $location);
-		if ($$cmds[0] and not user_group_exist(@$cmds)) { system($_) for @$cmds; }
+		if ($$cmds[0] and not user_group_exist(@$cmds)) {
+			say "Adding user and group for $item...";
+			system($_) for @$cmds;
+		}
 	}
-	my $res = system("sboinstall -o -L $log_dir -k $pkg_dir --batch $sbo");
+	my $res = system('sboinstall', '-o', '-L', $log_dir, '-k', $pkg_dir, '--batch', $sbo);
 	# this won't catch everything, but at least
 	# it's something
 	exit _ERR_INST_SIGNAL if $res == _ERR_INST_SIGNAL;
@@ -484,9 +480,10 @@ SECOND: for my $sbo (@to_test) {
 	} else {
 		push @built, $_ for @$queue;
 	}
-	next if $no_archive;
 	# archive built packages; dependencies only by
-	# default, or all with --archive-force
+	# default, or all with --archive-force; skip if
+	# archive_dir and pkg_dir are the same
+	next if $no_archive or $pkg_dir eq $archive_dir;
 	chdir $pkg_dir;
 	opendir($dh, $pkg_dir);
 	while (my $ls = readdir $dh) {
@@ -556,10 +553,11 @@ chdir $cwd;
 
 @successful = uniq(sort(@successful)) if @successful;
 @bad_pkg_lint = uniq(sort(@bad_pkg_lint)) if @bad_pkg_lint;
+my @requested = uniq(sort(@ARGV)) if @ARGV;
 
 chomp(my $end_date = `/usr/bin/date`);
 
-say ("\nRequested:\n  ", join("\n  ", @ARGV)) if @ARGV;
+say ("\nRequested:\n  ", join("\n  ", @requested)) if @requested;
 say ("\nSuccessful:\n  ", join("\n  ", @successful)) if @successful;
 say ("\nMissing:\n  ", join("\n  ", @missing)) if @missing;
 say ("\nFailed to Build:\n  ", join("\n  ", @fail_to_build)) if @fail_to_build;
@@ -574,7 +572,7 @@ error_code("\nNo log could be written; exiting.", _ERR_OPENFH) unless defined $f
 my $label = $archive_rebuild ? "Archive update" : "Test";
 say {$fh} "$label began: $start_date";
 say {$fh} "$label ended: $end_date";
-say {$fh} ("\nRequested:\n  ", join("\n  ", @ARGV)) if @ARGV;
+say {$fh} ("\nRequested:\n  ", join("\n  ", @requested)) if @requested;
 say {$fh} ("\nSuccessful:\n  ", join("\n  ", @successful)) if @successful;
 say {$fh} ("\nMissing:\n  ", join("\n  ", @missing)) if @missing;
 say {$fh} ("\nFailed to Build:\n  ", join("\n  ", @fail_to_build)) if @fail_to_build;

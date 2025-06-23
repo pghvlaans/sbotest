@@ -30,31 +30,19 @@ $ENV{SBOTEST_MODE} = 1;
 
 my ($config, $hints, @SVARG);
 for my $arg (@ARGV) {
-	if ($arg eq '--config') {
-		$config = 1;
-		next;
-	}
-	if ($arg eq '--hints') {
-		$hints = 1;
-		next;
-	}
+	if ($arg eq '--config') { $config = 1; next; }
+	if ($arg eq '--hints') { $hints = 1; next; }
 	push @SVARG, $arg;
 }
 
-if ($config and $hints) {
-	say "--config and --hints cannot be used together.";
-	exit 1;
-}
+if ($config and $hints) { say "--config and --hints cannot be used together."; exit 1; }
 
 # --config and --hints were added after the initial
 # compatibility commits in sbotools, but before the
 # release of version 3.7
 if ($config or $hints) {
 	my $fh;
-	unless (open $fh, '<', $util_pm) {
-		say "Failed to open $util_pm for reading.";
-		exit 6;
-	}
+	unless (open $fh, '<', $util_pm) { say "Failed to open $util_pm for reading."; exit 6; }
 	my $is_compatible;
 	for my $line (<$fh>) {
 		if ($line eq "#% SBOTEST CONFIG HINTS %\n") { $is_compatible = 1; last; }
