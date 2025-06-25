@@ -20,7 +20,7 @@ if [ -z "/usr/bin/ddate" ]; then
 fi
 
 NEWVER=$1
-OLDVER=$(awk -F\" '/^my \$SBOTEST_VERSION/{print $2}' bin/sbotest)
+OLDVER=$(awk -F\" '/^my \$SBOTEST_VERSION/{print $2}' bin/test)
 
 for dir in bin slackbuild man1; do
   find $dir -type f -exec sed -i "s/$OLDVER/$NEWVER/g" {} \;

@@ -8,9 +8,9 @@ sbotest
 .P
 sbotest [-h|-v]
 .P
-sbotest [-B BRANCH|FALSE] [-r URL|FALSE] --pull
+sbotest pull [-B BRANCH|FALSE] [-r URL|FALSE]
 .P
-sbotest [--config|--hints] ...
+sbotest [config|hints] ...
 .P
 sbotest [-f|-s] [-Akl /path|FALSE] [-j #|FALSE] \\
         [-D] [--no-archive|--archive-force] sbo_name (sbo_name)
@@ -50,7 +50,7 @@ is a reverse dependency build tester based on the
 sbotools
 library. To fetch or update the repository before testing, call
 .B
-sbotest --pull\fR\
+sbotest pull\fR\
 \&. Select a git branch and repository URL by editing
 .I
 /etc/sbotest/sbotest.conf
@@ -65,10 +65,10 @@ and
 sbotest
 is also configurable at the command line with
 .B
---config\fR\
+config\fR\
 \&, and per-script hints can be applied with
 .B
---hints\fR\
+hints\fR\
 \&. See
 .B
 sboconfig(1)
@@ -159,22 +159,7 @@ To generate a report of potential operations,
 use
 .B
 --dry-run
-with any combination of other options besides
-.B
---config\fR\
-\&,
-.B
---hints\fR\
-\&,
-.B
---pull\fR\
-\&,
-.B
---git-branch
-and
-.B
---repo\fR\
-\&.
+with any combination of other options.
 .P
 Non-root users can run sbotest with
 .B
@@ -186,10 +171,10 @@ and
 .B
 --dry-run.
 .B
---hints
+hints
 and
 .B
---config
+config
 can be run by anyone with listing-related options.
 .SH OPTIONS
 .P
@@ -203,6 +188,51 @@ Show help information.
 -v|--version
 .RS
 Show version information.
+.RE
+.P
+.B
+config
+.RS
+Interface with
+.B
+sboconfig(1)
+to modify settings. All
+.B
+sboconfig
+options can be used, with the addition of
+.B
+--sbo-archive\fR\
+\&. See
+.B
+CONFIGURATION
+below.
+.RE
+.P
+.B
+hints
+.RS
+Interface with
+.B
+sbohints(1)
+to modify per-script hints. All
+.B
+sbohints
+options can be used.
+.RE
+.P
+.B
+pull
+.RS
+Fetch the upstream repository to
+.I
+SBO_HOME/repo\fR\
+\&. Flags other than
+.B
+--git-branch
+and
+.B
+--repo
+have no effect.
 .RE
 .P
 .B
@@ -237,51 +267,6 @@ and
 .B
 --archive-force\fR\
 \&.
-.RE
-.P
-.B
---config
-.RS
-Interface with
-.B
-sboconfig(1)
-to modify settings. All
-.B
-sboconfig
-options can be used, with the addition of
-.B
---sbo-archive\fR\
-\&. See
-.B
-CONFIGURATION
-below.
-.RE
-.P
-.B
---hints
-.RS
-Interface with
-.B
-sbohints(1)
-to modify per-script hints. All
-.B
-sbohints
-options can be used.
-.RE
-.P
-.B
---pull
-.RS
-Fetch the upstream repository to
-.I
-SBO_HOME/repo\fR\
-\&. Flags other than
-.B
---git-branch
-and
-.B
---repo
-have no effect.
 .RE
 .P
 .B
@@ -332,7 +317,7 @@ a
 branch name\fR\
 \&, use it in case of a git repository. Must be used with
 .B
---pull\fR\
+pull\fR\
 \&.
 .RE
 .P
@@ -445,7 +430,7 @@ If a
 URL\fR\
 \&, pull from that URL. Must be used with
 .B
---pull\fR\
+pull\fR\
 \&.
 .RE
 .P
@@ -473,7 +458,7 @@ There are three basic ways to test scripts with
 sbotest\fR\
 \&. After using
 .B
-sbotest --pull
+sbotest pull
 to retrieve a new branch or the latest updates:
 .RS
 .IP \[bu] 3n
@@ -512,7 +497,7 @@ and
 --git-branch
 options when running
 .B
-sbotest --pull\fR\
+sbotest pull\fR\
 \&. From here, run
 .B
 sbotest\fR\
@@ -593,10 +578,10 @@ SBOTEST_CONF_DIR\fR\
 .P
 Configuration options and hints can be set from the command line with
 .B
---config
+config
 and
 .B
---hints\fR\
+hints\fR\
 \&, respectively.
 .P
 Several default settings differ from base

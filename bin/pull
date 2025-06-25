@@ -1,0 +1,65 @@
+#!/usr/bin/perl
+#
+# vim: ts=4:noet
+#
+# sbotest (pull script)
+# sbotools-based reverse dependency build tester
+#
+# author: K. Eugene Carlson <kvngncrlsn@gmail.com>
+# license: MIT License
+
+my $SBOTEST_VERSION = "0.1";
+
+use 5.016;
+use strict;
+use warnings;
+
+use SBO::Lib qw/ :config :const $slackbuilds_txt lint_sbo_config update_tree /;
+use Getopt::Long qw/ :config no_ignore_case_always bundling /;
+
+# $sbotest_compatible is exported from SBO::Lib::Util.pm; if
+# it is not present, the sbotools version is too old
+usage_error("The installed sbotools version is incompatible.\n\nUpgrade to 3.7 or 20250615-0d4e3dd at the earliest. Exiting.") unless defined $sbotest_compatible;
+
+my ($branch, $repo, $help, $version);
+GetOptions(
+	'help|h'              => \$help,
+	'version|v'           => \$version,
+	'git-branch|B=s'      => \$branch,
+	'repo|r=s'            => \$repo,
+);
+
+my $self = "sbotest";
+my $label = "sbotest pull";
+
+usage_error("Non-root users can only call \"$label\" with -h and -v. Exiting.") unless $< == 0 or $help or $version;
+
+show_usage() if $help;
+show_version() if $version;
+
+$config{GIT_BRANCH} = defined $branch ? $branch : $config{GIT_BRANCH};
+$config{REPO} = defined $repo ? $repo : $config{REPO};
+
+sub show_usage {
+	print <<"EOF";
+Pull:      $label [-B|-r]
+
+  --git-branch|-B [BRANCH|FALSE]:
+    use this git branch; with FALSE, use the default.
+  --repo|-r [URL|FALSE]:
+    pull from this repository URL; with FALSE, use the default.
+
+EOF
+	exit 0;
+}
+
+sub show_version {
+	say "$self version $SBOTEST_VERSION";
+	say "licensed under the MIT License";
+	exit 0;
+}
+
+lint_sbo_config("sbocheck", %config);
+
+# failed downloads will exit with a code
+update_tree();

@@ -11,7 +11,7 @@ if [ ! -d "./man1" -o $PWB != "sbotest" ]; then
   exit 1
 fi
 
-VER=$(awk -F\" '/^my \$SBOTEST_VERSION/{print $2}' bin/sbotest)
+VER=$(awk -F\" '/^my \$SBOTEST_VERSION/{print $2}' bin/test)
 TEMPDIR=$(mktemp -d)
 
 if [ ! -d $TEMPDIR ]; then

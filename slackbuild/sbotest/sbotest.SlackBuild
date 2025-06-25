@@ -61,9 +61,10 @@ find -L . \
 
 mkdir -p $PKG/usr/sbin \
          $PKG/usr/bin \
-         $PKG/usr/libexec
+         $PKG/usr/libexec/sbotest
 install -m 0755 bin/wrapper $PKG/usr/sbin/sbotest
-install -m 0755 bin/sbotest $PKG/usr/libexec
+install -m 0755 bin/test $PKG/usr/libexec/sbotest
+install -m 0755 bin/pull $PKG/usr/libexec/sbotest
 (
 cd $PKG/usr/bin
 ln -s ../sbin/sbotest $PKG/usr/bin

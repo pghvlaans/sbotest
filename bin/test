@@ -2,7 +2,7 @@
 #
 # vim: ts=4:noet
 #
-# sbotest
+# sbotest (test script)
 # sbotools-based reverse dependency build tester
 #
 # author: K. Eugene Carlson <kvngncrlsn@gmail.com>
@@ -14,7 +14,7 @@ use 5.016;
 use strict;
 use warnings;
 
-use SBO::Lib qw/ :config :const auto_reverse build_cmp get_arch get_readme_contents get_inst_names get_installed_packages get_sbo_build_number get_sbo_version get_user_group user_group_exist $conf_file get_sbo_location get_all_available get_build_queue get_full_reverse get_reverse_reqs is_local lint_sbo_config on_blacklist slurp update_tree uniq version_cmp error_code usage_error script_error @concluded @reverse_concluded $slackbuilds_txt /;
+use SBO::Lib qw/ :config :const auto_reverse build_cmp get_arch get_readme_contents get_inst_names get_installed_packages get_sbo_build_number get_sbo_version get_user_group user_group_exist $conf_file get_sbo_location get_all_available get_build_queue get_full_reverse get_reverse_reqs is_local lint_sbo_config on_blacklist slurp uniq version_cmp error_code usage_error script_error @concluded @reverse_concluded $slackbuilds_txt /;
 
 use Cwd;
 use File::Basename;
@@ -22,7 +22,7 @@ use File::Copy;
 use File::Path qw/ make_path /;
 use Getopt::Long qw/ :config no_ignore_case_always bundling /;
 
-my $self = basename($0);
+my $self = "sbotest";
 
 # $sbotest_compatible is exported from SBO::Lib::Util.pm; if
 # it is not present, the sbotools version is too old
@@ -31,7 +31,7 @@ usage_error("The installed sbotools version is incompatible.\n\nUpgrade to 3.7 o
 # for --dry-run
 our (@to_remove, @to_reuse, @in_overrides);
 
-my ($help, $version, $pkgdir, $sbo_archive, $jobs, $single, $full_reverse, $logdir, $archive_rebuild, $strict_upgrades, $dry_run, $repo, $branch, $pull, $no_archive, $archive_force);
+my ($help, $version, $pkgdir, $sbo_archive, $jobs, $single, $full_reverse, $logdir, $archive_rebuild, $strict_upgrades, $dry_run, $no_archive, $archive_force);
 
 GetOptions(
 	'help|h'              => \$help,
@@ -45,16 +45,11 @@ GetOptions(
 	'archive-rebuild'     => \$archive_rebuild,
 	'strict-upgrades|S=s' => \$strict_upgrades,
 	'dry-run|D'           => \$dry_run,
-	'repo|r=s'            => \$repo,
-	'git-branch|B=s'      => \$branch,
-	'pull|p'              => \$pull,
 	'no_archive'          => \$no_archive,
 	'archive-force'       => \$archive_force,
 );
 
 usage_error("Non-root users can only call sbotest with -h, -v, -D and listing options. Exiting.") unless $< == 0 or $dry_run or $help or $version;
-usage_error("repo must be used with pull. Exiting.") if $repo and not $pull;
-usage_error("git-branch must be used with pull. Exiting.") if $branch and not $pull;
 
 $config{SBO_ARCHIVE} = defined $sbo_archive ? $sbo_archive : $config{SBO_ARCHIVE};
 usage_error("SBO_ARCHIVE must be an abolute path or FALSE. Exiting.") unless $config{SBO_ARCHIVE} =~ m/^(\/|FALSE$)/;
@@ -64,8 +59,6 @@ $config{JOBS} = defined $jobs ? $jobs : $config{JOBS};
 $config{PKG_DIR} = defined $pkgdir ? $pkgdir : $config{PKG_DIR};
 $config{LOG_DIR} = defined $logdir ? $logdir : $config{LOG_DIR};
 $config{STRICT_UPGRADES} = defined $strict_upgrades ? $strict_upgrades : $config{STRICT_UPGRADES};
-$config{GIT_BRANCH} = defined $branch ? $branch : $config{GIT_BRANCH};
-$config{REPO} = defined $repo ? $repo : $config{REPO};
 
 show_usage() if $help;
 show_version() if $version;
@@ -77,15 +70,15 @@ lint_sbo_config($self, %config);
 
 sub show_usage {
 	print <<"EOF";
-Pull:      $self --pull [-B|-r]
+Pull:      $self pull [-B|-r]
 
   --git-branch|-B [BRANCH|FALSE]:
     use this git branch; with FALSE, use the default.
   --repo|-r [URL|FALSE]:
     pull from this repository URL; with FALSE, use the default.
 
-Configure: $self --config [sboconfig options]
-           $self --hints [sbohints options]
+Configure: $self config [sboconfig options]
+           $self hints [sbohints options]
 
 Usage:     $self [options] sbo ...
            $self [-h|-v]
@@ -295,15 +288,10 @@ sub same_as_repo {
 
 usage_error("sbotools needs to be installed.") unless -x "/usr/sbin/sboconfig";
 usage_error("sbo-maintainer-tools needs to be installed.") unless -x "/usr/bin/sbopkglint";
-show_usage() unless @ARGV or $archive_rebuild or $pull;
+show_usage() unless @ARGV or $archive_rebuild;
 
-# failed downloads will exit with a code
-if ($pull) {
-	update_tree();
-	exit;
-}
-# --pull reminder if no SLACKBUILDS.TXT
-usage_error("Use \"sbotest --pull\" to fetch the repository. Exiting.") unless -s $slackbuilds_txt;
+# reminder if no SLACKBUILDS.TXT
+usage_error("Use \"sbotest pull\" to fetch the repository. Exiting.") unless -s $slackbuilds_txt;
 
 my $cwd = getcwd();
 chomp(my $begin_time = `/usr/bin/date +%Y-%m-%d-%H:%M`);

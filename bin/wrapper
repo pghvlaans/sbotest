@@ -28,16 +28,17 @@ my $test_conf_dir = defined $test_conf_req ? $test_conf_req : "/etc/sbotest";
 $ENV{SBOTOOLS_CONF_DIR} = $test_conf_dir;
 $ENV{SBOTEST_MODE} = 1;
 
-my ($config, $hints, @SVARG);
+my ($config, $hints, $pull, @SVARG);
+$config = 1 if $ARGV[0] eq 'config';
+$pull = 1 if $ARGV[0] eq 'pull';
+$hints = 1 if $ARGV[0] eq 'hints';
+
 for my $arg (@ARGV) {
-	if ($arg eq '--config') { $config = 1; next; }
-	if ($arg eq '--hints') { $hints = 1; next; }
+	next if $arg eq 'config' or $arg eq 'hints' or $arg eq 'pull';
 	push @SVARG, $arg;
 }
 
-if ($config and $hints) { say "--config and --hints cannot be used together."; exit 1; }
-
-# --config and --hints were added after the initial
+# config and hints were added after the initial
 # compatibility commits in sbotools, but before the
 # release of version 3.7
 if ($config or $hints) {
@@ -55,9 +56,11 @@ if ($config or $hints) {
 }
 
 if ($config) {
-	system("/usr/sbin/sboconfig", @SVARG);
+	system('/usr/sbin/sboconfig', @SVARG);
 } elsif ($hints) {
-	system("/usr/sbin/sbohints", @SVARG);
+	system('/usr/sbin/sbohints', @SVARG);
+} elsif ($pull) {
+	system('/usr/libexec/sbotest/pull', @SVARG);
 } else {
-	system("/usr/libexec/sbotest", @SVARG);
+	system('/usr/libexec/sbotest/test', @SVARG);
 }
