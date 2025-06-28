@@ -45,7 +45,7 @@ GetOptions(
 	'archive-rebuild'     => \$archive_rebuild,
 	'strict-upgrades|S=s' => \$strict_upgrades,
 	'dry-run|D'           => \$dry_run,
-	'no_archive'          => \$no_archive,
+	'no-archive'          => \$no_archive,
 	'archive-force'       => \$archive_force,
 );
 
