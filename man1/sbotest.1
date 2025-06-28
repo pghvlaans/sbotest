@@ -179,18 +179,6 @@ can be run by anyone with listing-related options.
 .SH OPTIONS
 .P
 .B
--h|--help
-.RS
-Show help information.
-.RE
-.P
-.B
--v|--version
-.RS
-Show version information.
-.RE
-.P
-.B
 config
 .RS
 Interface with
@@ -452,6 +440,19 @@ the setting in
 .I
 /etc/sbotest/sbotest.conf\fR\
 \&.
+.RE
+.P
+.B
+-h|--help
+.RS
+Show help information.
+.RE
+.P
+.B
+-v|--version
+.RS
+Show version information.
+.RE
 .SH TESTING STRATEGIES
 There are three basic ways to test scripts with
 .B
@@ -705,25 +706,25 @@ sbotest
 can exit with the following codes:
 .RS
 
-0: all operations were succesful.
+0:  all operations were succesful.
 .RE
 .RS
-1: a usage error occured, such as specifying invalid options.
+1:  a usage error occured, such as specifying invalid options.
 .RE
 .RS
-2: a script or module error occurred.
+2:  a script or module error occurred.
 .RE
 .RS
-6: unable to obtain a required file handle.
+6:  unable to obtain a required file handle.
 .RE
 .RS
-7: unable to get required info from the
+7:  unable to get required info from the
 .I
 info
 file.
 .RE
 .RS
-8: unable to unset the exec-on-close bit on a temporary file.
+8:  unable to unset the exec-on-close bit on a temporary file.
 .RE
 .RS
 12: interrupt signal received.
