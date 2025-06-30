@@ -135,7 +135,7 @@ If an **absolute path**, use that as the archive directory.
 
 **\--archive-force**
 
-When testing the requested scripts, move all built packages into
+When testing the requested scripts, copy all built packages into
 **SBO_ARCHIVE**, */usr/sbotest/archive* by default. This includes even
 requested scripts and their reverse dependencies.
 

@@ -299,7 +299,7 @@ my $cwd = getcwd();
 chomp(my $begin_time = `/usr/bin/date +%Y-%m-%d-%H:%M`);
 chomp(my $start_date = `/usr/bin/date`);
 
-my (@missing, @bad_lint, @bad_pkg_lint, @fail_to_build, @successful, @unsupported, @built);
+my (@missing, @bad_lint, @bad_pkg_lint, @fail_to_build, @successful, @unsupported, @built, @copied);
 my $pkg_dir = $config{PKG_DIR} eq 'FALSE' ? "$config{SBO_HOME}/tests/$begin_time-tests" : "$config{PKG_DIR}/$begin_time-tests";
 my $log_dir = $config{LOG_DIR} eq 'FALSE' ? "$config{SBO_HOME}/logs/$begin_time-logs" : "$config{LOG_DIR}/$begin_time-logs";
 my $logfile = "$config{SBO_HOME}/results/$begin_time.log";
@@ -483,8 +483,11 @@ SECOND: for my $sbo (@to_test) {
 		next unless defined $pkg_name;
 		my $is_same = same_as_repo($pkg_name, $pkg_version, $pkg_build);
 		if ($is_same and ($archive_force or not grep { /^$pkg_name$/ } @to_test)) {
-			say "Archiving $ls.";
-			move $ls, "$archive_dir/$ls";
+			unless (grep { /^$ls$/ } @copied) {
+				say "Archiving $ls.";
+				push @copied, $ls;
+				copy $ls, "$archive_dir/$ls";
+			}
 		}
 	}
 	close $dh;
