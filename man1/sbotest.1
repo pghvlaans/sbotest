@@ -10,7 +10,7 @@ sbotest [-h|-v]
 .P
 sbotest pull [-B BRANCH|FALSE] [-r URL|FALSE]
 .P
-sbotest [config|hints] ...
+sbotest [config|find|hints] ...
 .P
 sbotest [-f|-s] [-Akl /path|FALSE] [-j #|FALSE] \\
         [-D] [--no-archive|--archive-force] sbo_name (sbo_name)
@@ -84,7 +84,7 @@ builds any requested
 SlackBuilds with their first level of reverse dependencies.
 Use
 .B
-sbofind --first-reverse
+sbotest find --first-reverse
 or pass
 .B
 --dry-run
@@ -171,10 +171,13 @@ and
 .B
 --dry-run.
 .B
-hints
-and
+hints\fR\
+\&,
 .B
 config
+and
+.B
+find
 can be run by anyone with listing-related options.
 .SH OPTIONS
 .P
@@ -194,6 +197,20 @@ options can be used, with the addition of
 .B
 CONFIGURATION
 below.
+.RE
+.P
+.B
+find
+.RS
+Interface with
+.B
+sbofind(1)
+to search the local copy of the repository for SlackBuilds.
+Scripts with up-to-date packages in the archive are indicated.
+All
+.B
+sbofind
+options can be used.
 .RE
 .P
 .B
@@ -326,7 +343,7 @@ case of
 Test all reverse dependencies for the requested scripts rather than
 the first level only. Use
 .B
-sbofind --all-reverse
+sbotest find --all-reverse
 or pass
 .B
 --dry-run

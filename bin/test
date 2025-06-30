@@ -29,7 +29,7 @@ my $self = "sbotest";
 usage_error("The installed sbotools version is incompatible.\n\nUpgrade to 3.7 or 20250615-0d4e3dd at the earliest. Exiting.") unless defined $sbotest_compatible;
 
 # for --dry-run
-our (@to_remove, @to_reuse, @in_overrides);
+our (@to_remove, @to_reuse, @in_overrides, @dry_run_list);
 
 my ($help, $version, $pkgdir, $sbo_archive, $jobs, $single, $full_reverse, $logdir, $archive_rebuild, $strict_upgrades, $dry_run, $no_archive, $archive_force);
 
@@ -79,6 +79,8 @@ Pull:      $self pull [-B|-r]
 
 Configure: $self config [sboconfig options]
            $self hints [sbohints options]
+
+Search:    $self find [sbofind options]
 
 Usage:     $self [options] sbo ...
            $self [-h|-v]
@@ -418,6 +420,7 @@ SECOND: for my $sbo (@to_test) {
 	}
 	# nothing past this point is needed in
 	# --dry-run
+	push @dry_run_list, $sbo;
 	next SECOND if $dry_run;
 	push @bad_lint, $sbo unless system('sbolint') == 0;
 	# reinstall anything already built on this
@@ -491,7 +494,7 @@ if ($dry_run) {
 	@to_reuse = uniq(sort(@to_reuse)) if @to_reuse;
 	@to_remove = uniq(sort(@to_remove)) if @to_remove;
 	@in_overrides = uniq(sort(@in_overrides)) if @in_overrides;
-	@to_test = sort(@to_test) if @to_test;
+	@to_test = sort(@dry_run_list) if @dry_run_list;
 
 	my $message = $archive_rebuild ? "Archive Rebuild Dry Run:" : "Dry Run:";
 	say "$message";
@@ -504,7 +507,7 @@ if ($dry_run) {
 		say "\nTo reuse $reuse_number from $archive_dir.";
 	}
 	if ($archive_rebuild) {
-		say ("\nScripts to rebuild:\n  ", join("\n  ", @to_test)) if @to_test;
+		say ("\nScripts to rebuild:\n  ", join("\n  ", @dry_run_list)) if @dry_run_list;
 		say ("\nTo remove from archive:\n  ", join("\n  ", @to_remove)) if @to_remove;
 	} else {
 		say ("\nScripts to test:\n  ", join("\n  ", @to_test)) if @to_test;
