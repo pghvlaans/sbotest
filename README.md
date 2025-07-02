@@ -12,7 +12,7 @@ See the man page for more information about options and settings!
 
 **sbotest** is not quite ready for a version release, which needs to wait for **sbotools-3.7**. In the meantime, please follow these steps if you would like to try **sbotest**:
 
-* Use **[sbotools-git-slackbuild](https://github.com/pghvlaans/sbotools-git-slackbuild/)** to upgrade **sbotools** to version `20250630-4a2fbc9` at the oldest.
+* Use **[sbotools-git-slackbuild](https://github.com/pghvlaans/sbotools-git-slackbuild/)** to upgrade **sbotools** to version `20250702-1cd4031` at the oldest.
 * Clone the **sbotest** repository.
 * From the root directory, run `./tools/source_to_slackbuild.sh`.
 * Run the SlackBuild in `slackbuild/sbotest`.
