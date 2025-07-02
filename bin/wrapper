@@ -48,8 +48,8 @@ for my $line (<$fh>) {
 }
 close $fh;
 unless ($is_compatible) {
-		say "This version of sbotools is incompatible with this version of sbotest.\nUpgrade sbotools to at least 3.7 or 20250702-1cd4031.";
-		exit 1;
+	say "This version of sbotools is incompatible with this version of sbotest.\nUpgrade sbotools to at least 3.7 or 20250702-1cd4031.";
+	exit 1;
 }
 
 if ($config) {
