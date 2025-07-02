@@ -59,7 +59,7 @@ sub show_version {
 	exit 0;
 }
 
-lint_sbo_config("sbocheck", %config);
+lint_sbo_config($self, %config);
 
 # failed downloads will exit with a code
 update_tree();

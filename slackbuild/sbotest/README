@@ -1,4 +1,4 @@
-sbotest (sbotools-based build tester)
+sbotest (sbotools-based reverse dependency build tester)
 
 sbotest uses the sbotools library and sbo-maintainer-tools to build and
 test SlackBuilds and their reverse dependencies (zero, one or all

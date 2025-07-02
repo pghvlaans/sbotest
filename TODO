@@ -1,4 +1,0 @@
-A few more things to do before a version release:
-
-* Release sbotools-3.7 (a compatible release is needed before anyone
-  who doesn't install from sbotools-git-slackbuild can use this).

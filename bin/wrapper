@@ -39,23 +39,17 @@ for my $arg (@ARGV) {
 	push @SVARG, $arg;
 }
 
-# config, find and hints were added after the initial
-# compatibility commits in sbotools, but before the
-# release of version 3.7
-if ($config or $hints or $find) {
-	my $string = $find ? "#% SBOTEST FIND %\n" : "#% SBOTEST CONFIG HINTS %\n";
-	my $fh;
-	unless (open $fh, '<', $util_pm) { say "Failed to open $util_pm for reading."; exit 6; }
-	my $is_compatible;
-	for my $line (<$fh>) {
-		if ($line eq $string) { $is_compatible = 1; last; }
-	}
-	close $fh;
-	unless ($is_compatible) {
-		say "This version of sbotools is incompatible with config and hints.\nUpgrade sbotools to at least 3.7 or 20250616-0d4e3dd." unless $find;
-		say "This version of sbotools is incompatible with find.\nUpgrade sbotools to at least 3.7 or 20250630-4a2fbc9." if $find;
+my $string = "#% SBOTEST V1 COMPAT %\n";
+my $fh;
+unless (open $fh, '<', $util_pm) { say "Failed to open $util_pm for reading."; exit 6; }
+my $is_compatible;
+for my $line (<$fh>) {
+	if ($line eq $string) { $is_compatible = 1; last; }
+}
+close $fh;
+unless ($is_compatible) {
+		say "This version of sbotools is incompatible with this version of sbotest.\nUpgrade sbotools to at least 3.7 or 202507XX-XXXXXXX.";
 		exit 1;
-	}
 }
 
 if ($config) {

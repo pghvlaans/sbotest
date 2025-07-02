@@ -52,7 +52,6 @@ GetOptions(
 usage_error("Non-root users can only call sbotest with -h, -v, -D and listing options. Exiting.") unless $< == 0 or $dry_run or $help or $version;
 
 $config{SBO_ARCHIVE} = defined $sbo_archive ? $sbo_archive : $config{SBO_ARCHIVE};
-usage_error("SBO_ARCHIVE must be an abolute path or FALSE. Exiting.") unless $config{SBO_ARCHIVE} =~ m/^(\/|FALSE$)/;
 my $archive_dir = $config{SBO_ARCHIVE};
 
 $config{JOBS} = defined $jobs ? $jobs : $config{JOBS};
@@ -299,7 +298,7 @@ my $cwd = getcwd();
 chomp(my $begin_time = `/usr/bin/date +%Y-%m-%d-%H:%M`);
 chomp(my $start_date = `/usr/bin/date`);
 
-my (@missing, @bad_lint, @bad_pkg_lint, @fail_to_build, @successful, @unsupported, @built, @copied);
+my (@missing, @bad_lint, @bad_pkg_lint, @fail_to_build, @successful, @unsupported, @built, @copied, @already_installed);
 my $pkg_dir = $config{PKG_DIR} eq 'FALSE' ? "$config{SBO_HOME}/tests/$begin_time-tests" : "$config{PKG_DIR}/$begin_time-tests";
 my $log_dir = $config{LOG_DIR} eq 'FALSE' ? "$config{SBO_HOME}/logs/$begin_time-logs" : "$config{LOG_DIR}/$begin_time-logs";
 my $logfile = "$config{SBO_HOME}/results/$begin_time.log";
@@ -338,6 +337,10 @@ unless ($single) {
 
 FIRST: for my $sbo (@ARGV) {
 	last if $archive_rebuild;
+	if (grep { /^$sbo$/ } @$inst_sbos and ! $single) {
+		push @already_installed, $sbo;
+		next FIRST;
+	}
 	my $dir = get_sbo_location($sbo);
 	unless (defined $dir and -d $dir) {
 		push @missing, $sbo;
@@ -393,7 +396,9 @@ unless (@to_test) {
 	say "No testing to do.";
 	say ("\nRequested:\n  ", join("\n  ", @ARGV)) unless $archive_rebuild;
 	say ("\nUnsupported:\n  ", join("\n  ", @unsupported)) if @unsupported;
+	say ("\nAlready Installed\n  ", join("\n  ", @already_installed)) if @already_installed;
 	say ("\nMissing:\n  ", join("\n  ", @missing)) if @missing;
+	say ("\nUse \"sbotest --single\" to test scripts that are already installed.") if @already_installed;
 	exit;
 }
 @to_test = uniq(@to_test) if @to_test;
@@ -462,7 +467,15 @@ SECOND: for my $sbo (@to_test) {
 			system($_) for @$cmds;
 		}
 	}
-	my $res = system('sboinstall', '-o', '-L', $log_dir, '-k', $pkg_dir, '--batch', $sbo);
+	my ($res, $res0);
+	my @lesser_queue;
+	for my $dep (@$queue) { push @lesser_queue, $dep unless $dep eq $sbo; }
+	$res0 = @lesser_queue ? system('sboinstall', '-o', '-L', $log_dir, '-k', $pkg_dir, '--batch', @lesser_queue) : 0;
+	if ($res0 and @lesser_queue) {
+		$res = $res0;
+	} else {
+		$res = system('sboinstall', '-o', '-L', $log_dir, '-k', $pkg_dir, '-i', '-r', '-R', $sbo);
+	}
 	# this won't catch everything, but at least
 	# it's something
 	exit _ERR_INST_SIGNAL if $res == _ERR_INST_SIGNAL;
@@ -498,12 +511,14 @@ if ($dry_run) {
 	@to_remove = uniq(sort(@to_remove)) if @to_remove;
 	@in_overrides = uniq(sort(@in_overrides)) if @in_overrides;
 	@to_test = sort(@dry_run_list) if @dry_run_list;
+	@already_installed = sort(@already_installed) if @already_installed;
 
 	my $message = $archive_rebuild ? "Archive Rebuild Dry Run:" : "Dry Run:";
 	say "$message";
 	say ("\nRequested: ", join(" ", @ARGV)) if @ARGV;
 	say ("\nMissing: ", join(" ", @missing)) if @missing;
 	say ("\nUnsupported: ", join(" ", @unsupported)) if @unsupported;
+	say ("\nAlready Installed: ", join(" ", @already_installed)) if @already_installed;
 	say ("\nOverrides: ", join(" ", @in_overrides)) if @in_overrides;
 	if (@to_reuse) {
 		my $reuse_number = @to_reuse;
@@ -515,6 +530,7 @@ if ($dry_run) {
 	} else {
 		say ("\nScripts to test:\n  ", join("\n  ", @to_test)) if @to_test;
 	}
+	say ("\nUse \"sbotest --single\" to test scripts that are already installed.") if @already_installed;
 	exit;
 }
 
@@ -558,6 +574,8 @@ say ("\nFailed to Build:\n  ", join("\n  ", @fail_to_build)) if @fail_to_build;
 say ("\nBad sbolint:\n  ", join("\n  ", @bad_lint)) if @bad_lint;
 say ("\nBad sbopkglint:\n  ", join("\n  ", @bad_pkg_lint)) if @bad_pkg_lint;
 say ("\nUnsupported:\n  ", join("\n  ", @unsupported)) if @unsupported;
+say ("\nAlready Installed:\n ", join("\n ", @already_installed)) if @already_installed;
+say ("\nUse \"sbotest --single\" to test scripts that are already installed.") if @already_installed;
 
 unlink $logfile if -f $logfile;
 open(my $fh, '>', $logfile);
@@ -573,6 +591,8 @@ say {$fh} ("\nFailed to Build:\n  ", join("\n  ", @fail_to_build)) if @fail_to_b
 say {$fh} ("\nBad sbolint:\n  ", join("\n  ", @bad_lint)) if @bad_lint;
 say {$fh} ("\nBad sbopkglint:\n  ", join("\n  ", @bad_pkg_lint)) if @bad_pkg_lint;
 say {$fh} ("\nUnsupported:\n  ", join("\n  ", @unsupported)) if @unsupported;
+say {$fh} ("\nAlready Installed:\n ", join("\n ", @already_installed)) if @already_installed;
+say {$fh} ("\nUse \"sbotest --single\" to test scripts that are already installed.") if @already_installed;
 
 close $fh;
 say "\nLog written to $logfile.";

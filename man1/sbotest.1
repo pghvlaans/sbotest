@@ -22,7 +22,7 @@ sbotest [-Al /path|FALSE] [-B BRANCH|FALSE] [-r URL|FALSE] \\
 .P
 .B
 sbotest
-is designed and intended to run in a build-testing environment,
+is designed and intended to run in a clean build-testing environment,
 such as a virtual machine or a
 .B
 Docker
@@ -96,7 +96,11 @@ use the
 option;
 .B
 --single
-tests no reverse dependencies.
+tests no reverse dependencies. Please note that already-installed
+scripts can be tested only with
+.B
+--single\fR\
+\&; the existing package on the system is not replaced.
 .P
 Each test target has a separate testing workflow. First,
 dependencies saved to the
@@ -353,7 +357,8 @@ to see which scripts would be tested, if compatible.
 .B
 -s|--single
 .RS
-Do not test reverse dependencies for any requested script.
+Do not test reverse dependencies for any requested script. Enables testing
+for scripts that have already been installed.
 .RE
 .P
 .B

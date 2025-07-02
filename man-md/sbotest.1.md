@@ -35,7 +35,7 @@
 
 ## DISCLAIMER
 
-**sbotest** is designed and intended to run in a build-testing
+**sbotest** is designed and intended to run in a clean build-testing
 environment, such as a virtual machine or a **Docker** image. Missing
 users and groups are added automatically when running **sbotest**, and
 any packages installed as a result of testing are removed afterwards
@@ -60,7 +60,9 @@ with their first level of reverse dependencies. Use **sbotest find
 \--first-reverse** or pass **\--dry-run** for a list of scripts that
 would be tested, if compatible. To test all reverse dependencies of the
 requested scripts, use the **\--full-reverse** option; **\--single**
-tests no reverse dependencies.
+tests no reverse dependencies. Please note that already-installed
+scripts can be tested only with **\--single**; the existing package on
+the system is not replaced.
 
 Each test target has a separate testing workflow. First, dependencies
 saved to the **SBO_ARCHIVE** directory (default */usr/sbotest/archive*)
@@ -162,7 +164,8 @@ first level only. Use **sbotest find \--all-reverse** or pass
 
 **-s\|\--single**
 
-Do not test reverse dependencies for any requested script.
+Do not test reverse dependencies for any requested script. Enables
+testing for scripts that have already been installed.
 
 **-j\|\--jobs**
 
