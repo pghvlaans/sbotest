@@ -22,9 +22,10 @@ fi
 NEWVER=$1
 OLDVER=$(awk -F\" '/^my \$SBOTEST_VERSION/{print $2}' bin/test)
 
-for dir in bin slackbuild man1; do
-  find $dir -type f -exec sed -i "s/$OLDVER/$NEWVER/g" {} \;
+for dir in bin slackbuild; do
+  find $dir -type f -exec sed -i "/VERSION\|DOWNLOAD/ s/$OLDVER/$NEWVER/g" {} \;
 done
+sed -i "s/$OLDVER/$NEWVER/g" man1/sbotest.1
 
 OLDDDATE="$(awk -F\" '/^\.TH/{print $2}' man1/sbotest.1)"
 NEWDDATE="$(/usr/bin/ddate +"%{%A, %B %d%}, %Y YOLD%N - %H")" 
