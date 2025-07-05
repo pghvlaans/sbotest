@@ -10,7 +10,7 @@ See the man page for more information about options and settings!
 
 ## Getting sbotest
 
-**sbotest-1.0** is soon to be submitted to **SlackBuilds.org**. **sbotest** requires **sbotools-3.7** (next Public Update) or above and **sbo-maintainer-tools**.
+A SlackBuild is [available](https://slackbuilds.org/repository/15.0/system/sbotools/) at SlackBuilds.org.
 
 To use a development version:
 
