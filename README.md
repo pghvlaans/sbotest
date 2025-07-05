@@ -10,7 +10,7 @@ See the man page for more information about options and settings!
 
 ## Getting sbotest
 
-A SlackBuild is [available](https://slackbuilds.org/repository/15.0/system/sbotools/) at SlackBuilds.org.
+A SlackBuild is [available](https://slackbuilds.org/repository/15.0/system/sbotest/) at SlackBuilds.org.
 
 To use a development version:
 
