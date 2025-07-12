@@ -8,6 +8,10 @@ This **sbotools** companion script is written with script maintainers in mind: E
 
 See the man page for more information about options and settings!
 
+## Most Recent Changes
+#### Post-Release
+  * Report scripts with failures in the dependency queue separately
+
 ## Getting sbotest
 
 A SlackBuild is [available](https://slackbuilds.org/repository/15.0/system/sbotest/) at SlackBuilds.org.

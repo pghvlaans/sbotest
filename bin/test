@@ -298,7 +298,7 @@ my $cwd = getcwd();
 chomp(my $begin_time = `/usr/bin/date +%Y-%m-%d-%H:%M`);
 chomp(my $start_date = `/usr/bin/date`);
 
-my (@missing, @bad_lint, @bad_pkg_lint, @fail_to_build, @successful, @unsupported, @built, @copied, @already_installed);
+my (@missing, @bad_lint, @bad_pkg_lint, @fail_to_build, @successful, @unsupported, @built, @copied, @already_installed, @queue_failed);
 my $pkg_dir = $config{PKG_DIR} eq 'FALSE' ? "$config{SBO_HOME}/tests/$begin_time-tests" : "$config{PKG_DIR}/$begin_time-tests";
 my $log_dir = $config{LOG_DIR} eq 'FALSE' ? "$config{SBO_HOME}/logs/$begin_time-logs" : "$config{LOG_DIR}/$begin_time-logs";
 my $logfile = "$config{SBO_HOME}/results/$begin_time.log";
@@ -473,6 +473,7 @@ SECOND: for my $sbo (@to_test) {
 	$res0 = @lesser_queue ? system('sboinstall', '-o', '-L', $log_dir, '-k', $pkg_dir, '--batch', @lesser_queue) : 0;
 	if ($res0 and @lesser_queue) {
 		$res = $res0;
+		push @queue_failed, $sbo;
 	} else {
 		$res = system('sboinstall', '-o', '-L', $log_dir, '-k', $pkg_dir, '-i', '-r', '-R', $sbo);
 	}
@@ -480,7 +481,7 @@ SECOND: for my $sbo (@to_test) {
 	# it's something
 	exit _ERR_INST_SIGNAL if $res == _ERR_INST_SIGNAL;
 	unless ($res == 0) {
-		push @fail_to_build, $sbo;
+		push @fail_to_build, $sbo unless grep { /^$sbo$/ } @queue_failed;
 	} else {
 		push @built, $_ for @$queue;
 	}
@@ -563,6 +564,7 @@ chdir $cwd;
 
 @successful = uniq(sort(@successful)) if @successful;
 @bad_pkg_lint = uniq(sort(@bad_pkg_lint)) if @bad_pkg_lint;
+@queue_failed = uniq(sort(@queue_failed)) if @queue_failed;
 my @requested = uniq(sort(@ARGV)) if @ARGV;
 
 chomp(my $end_date = `/usr/bin/date`);
@@ -571,6 +573,7 @@ say ("\nRequested:\n  ", join("\n  ", @requested)) if @requested;
 say ("\nSuccessful:\n  ", join("\n  ", @successful)) if @successful;
 say ("\nMissing:\n  ", join("\n  ", @missing)) if @missing;
 say ("\nFailed to Build:\n  ", join("\n  ", @fail_to_build)) if @fail_to_build;
+say ("\nDependency Failed\n  ", join("\n  ", @queue_failed)) if @queue_failed;
 say ("\nBad sbolint:\n  ", join("\n  ", @bad_lint)) if @bad_lint;
 say ("\nBad sbopkglint:\n  ", join("\n  ", @bad_pkg_lint)) if @bad_pkg_lint;
 say ("\nUnsupported:\n  ", join("\n  ", @unsupported)) if @unsupported;
@@ -588,6 +591,7 @@ say {$fh} ("\nRequested:\n  ", join("\n  ", @requested)) if @requested;
 say {$fh} ("\nSuccessful:\n  ", join("\n  ", @successful)) if @successful;
 say {$fh} ("\nMissing:\n  ", join("\n  ", @missing)) if @missing;
 say {$fh} ("\nFailed to Build:\n  ", join("\n  ", @fail_to_build)) if @fail_to_build;
+say {$fh} ("\nDependency Failed:\n  ", join("\n  ", @queue_failed)) if @queue_failed;
 say {$fh} ("\nBad sbolint:\n  ", join("\n  ", @bad_lint)) if @bad_lint;
 say {$fh} ("\nBad sbopkglint:\n  ", join("\n  ", @bad_pkg_lint)) if @bad_pkg_lint;
 say {$fh} ("\nUnsupported:\n  ", join("\n  ", @unsupported)) if @unsupported;
