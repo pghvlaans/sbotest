@@ -18,6 +18,9 @@ sbotest [-f|-s] [-Akl /path|FALSE] [-j #|FALSE] \\
 sbotest [-Al /path|FALSE] [-B BRANCH|FALSE] [-r URL|FALSE] \\
         [-S TRUE|FALSE] [-D] --archive-rebuild
 .P
+sbotest [-Al /path|FALSE] [-B BRANCH|FALSE] [-r URL|FALSE] \\
+        [-S TRUE|FALSE] [-D] --archive-reverse
+.P
 .SH DISCLAIMER
 .P
 .B
@@ -279,6 +282,23 @@ and
 .RE
 .P
 .B
+--archive-reverse
+.RS
+Perform an archive rebuild as with
+.B
+--archive-rebuild\fR\
+\&, but rebuild all reverse dependencies as well.
+.P
+Incompatible with
+.B
+--no-archive
+and
+.B
+--archive-force\fR\
+\&.
+.RE
+.P
+.B
 -A|--sbo-archive
 .RS
 If
@@ -307,7 +327,10 @@ dependencies.
 .P
 Incompatible with
 .B
---archive-rebuild
+--archive-rebuild\fR\
+\&,
+.B
+--archive-reverse
 and
 .B
 ---no-archive\fR\
@@ -338,6 +361,9 @@ overrides directory and the number of archived packages to be reused. In
 case of
 .B
 --archive-rebuild\fR\
+or
+.B
+--archive-reverse\fR\
 \&, additionally report archived packages to be removed.
 .RE
 .P
@@ -421,7 +447,10 @@ not archive built packages.
 .P
 Incompatible with
 .B
---archive-rebuild
+--archive-rebuild\fR\
+\&,
+.B
+--archive-reverse
 and
 .B
 --archive-force\fR\
@@ -453,7 +482,10 @@ TRUE\fR\
 \&, delete only mismatched packages with lower version
 or build numbers when running
 .B
---archive-rebuild\fR\
+--archive-rebuild
+or
+.B
+--archive-reverse\fR\
 \&. If
 .B
 FALSE\fR\
@@ -567,7 +599,9 @@ The archive can be kept current with
 --archive-rebuild\fR\
 \&. This rebuilds all version- and build-mismatched packages in the
 archive, provided that they are not installed or on the blacklist.
-If
+.B
+--archive-reverse
+rebuilds all reverse dependencies as well. If
 .B
 STRICT_UPGRADES
 is

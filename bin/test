@@ -31,7 +31,7 @@ usage_error("The installed sbotools version is incompatible.\n\nUpgrade to 3.7 o
 # for --dry-run
 our (@to_remove, @to_reuse, @in_overrides, @dry_run_list);
 
-my ($help, $version, $pkgdir, $sbo_archive, $jobs, $single, $full_reverse, $logdir, $archive_rebuild, $strict_upgrades, $dry_run, $no_archive, $archive_force);
+my ($help, $version, $pkgdir, $sbo_archive, $jobs, $single, $full_reverse, $logdir, $archive_rebuild, $strict_upgrades, $dry_run, $no_archive, $archive_force, $archive_reverse);
 
 GetOptions(
 	'help|h'              => \$help,
@@ -43,6 +43,7 @@ GetOptions(
 	'jobs|j=s'            => \$jobs,
 	'log-dir|l=s'         => \$logdir,
 	'archive-rebuild'     => \$archive_rebuild,
+	'archive-reverse'     => \$archive_reverse,
 	'strict-upgrades|S=s' => \$strict_upgrades,
 	'dry-run|D'           => \$dry_run,
 	'no-archive'          => \$no_archive,
@@ -50,6 +51,8 @@ GetOptions(
 );
 
 usage_error("Non-root users can only call sbotest with -h, -v, -D and listing options. Exiting.") unless $< == 0 or $dry_run or $help or $version;
+
+$archive_rebuild = $archive_reverse if $archive_reverse;
 
 $config{SBO_ARCHIVE} = defined $sbo_archive ? $sbo_archive : $config{SBO_ARCHIVE};
 my $archive_dir = $config{SBO_ARCHIVE};
@@ -107,6 +110,8 @@ Options:
     do not test reverse dependencies.
   --archive-rebuild:
     replace all outdated packages in the archive.
+  --archive-reverse:
+    replace outdated packages and their reverse dependencies.
   --no-archive:
     do not save or reuse any packages.
   --archive-force:
@@ -383,7 +388,12 @@ if ($archive_rebuild and -d $archive_dir) {
 	@archived_names = uniq(@archived_names) if @archived_names;
 	@to_test = find_outdated($archive_dir, $inst_sbos);
 	for my $base (@to_test) {
-		my @to_rebuild = get_full_reverse($base, $available, $all_fulldeps) if auto_reverse($base);
+		my @to_rebuild;
+		if ($archive_reverse) {
+			@to_rebuild = get_full_reverse($base, $available, $all_fulldeps);
+		} else {
+			@to_rebuild = get_full_reverse($base, $available, $all_fulldeps) if auto_reverse($base);
+		}
 		for my $rev (@to_rebuild) {
 			push @rebuild_target, $rev;
 			push @to_test, $rev if grep { /^$rev$/ } @archived_names;
