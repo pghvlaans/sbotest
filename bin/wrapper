@@ -63,3 +63,5 @@ if ($config) {
 } else {
 	system('/usr/libexec/sbotest/test', @SVARG);
 }
+
+END { say ""; }

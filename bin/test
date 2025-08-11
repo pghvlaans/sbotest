@@ -14,7 +14,7 @@ use 5.016;
 use strict;
 use warnings;
 
-use SBO::Lib qw/ :config :const auto_reverse build_cmp get_arch get_readme_contents get_inst_names get_installed_packages get_sbo_build_number get_sbo_version get_user_group user_group_exist $conf_file get_sbo_location get_all_available get_build_queue get_full_reverse get_reverse_reqs is_local lint_sbo_config on_blacklist slurp uniq version_cmp error_code usage_error script_error @concluded @reverse_concluded $slackbuilds_txt /;
+use SBO::Lib qw/ :config :const auto_reverse build_cmp get_readme_contents get_inst_names get_installed_packages get_sbo_build_number get_sbo_version get_user_group user_group_exist $conf_file get_sbo_location get_all_available get_build_queue get_full_reverse get_reverse_reqs is_local lint_sbo_config on_blacklist slurp uniq version_cmp error_code usage_error script_error @concluded @reverse_concluded $slackbuilds_txt /;
 
 use Cwd;
 use File::Basename;
@@ -326,8 +326,6 @@ unless ($dry_run) {
 	# a nonexistent directory is necessarily empty
 	make_path($archive_dir) unless -d $archive_dir or $no_archive;
 }
-
-my $arch = get_arch();
 
 # nothing installed at the beginning of the test
 # run will be uninstalled during it
