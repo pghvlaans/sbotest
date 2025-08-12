@@ -14,7 +14,7 @@ use 5.016;
 use strict;
 use warnings;
 
-use SBO::Lib qw/ :config :const auto_reverse build_cmp get_readme_contents get_inst_names get_installed_packages get_sbo_build_number get_sbo_version get_user_group user_group_exist $conf_file get_sbo_location get_all_available get_build_queue get_full_reverse get_reverse_reqs is_local lint_sbo_config on_blacklist slurp uniq version_cmp error_code usage_error script_error @concluded @reverse_concluded $slackbuilds_txt /;
+use SBO::Lib qw/ :config :const auto_reverse build_cmp get_readme_contents get_inst_names get_installed_packages get_sbo_build_number get_sbo_version get_user_group user_group_exist $conf_file get_sbo_location get_all_available get_build_queue get_full_reverse get_reverse_reqs is_local lint_sbo_config on_blacklist slurp solib_check uniq version_cmp error_code usage_error script_error @concluded @reverse_concluded $slackbuilds_txt /;
 
 use Cwd;
 use File::Basename;
@@ -31,7 +31,7 @@ usage_error("The installed sbotools version is incompatible.\n\nUpgrade to 3.7 o
 # for --dry-run
 our (@to_remove, @to_reuse, @in_overrides, @dry_run_list);
 
-my ($help, $version, $pkgdir, $sbo_archive, $jobs, $single, $full_reverse, $logdir, $archive_rebuild, $strict_upgrades, $dry_run, $no_archive, $archive_force, $archive_reverse);
+my ($help, $version, $pkgdir, $sbo_archive, $jobs, $single, $full_reverse, $logdir, $archive_rebuild, $strict_upgrades, $dry_run, $no_archive, $archive_force, $archive_reverse, $so_check);
 
 GetOptions(
 	'help|h'              => \$help,
@@ -48,6 +48,7 @@ GetOptions(
 	'dry-run|D'           => \$dry_run,
 	'no-archive'          => \$no_archive,
 	'archive-force'       => \$archive_force,
+	'so-check|X=s'        => \$so_check,
 );
 
 usage_error("Non-root users can only call sbotest with -h, -v, -D and listing options. Exiting.") unless $< == 0 or $dry_run or $help or $version;
@@ -61,6 +62,7 @@ $config{JOBS} = defined $jobs ? $jobs : $config{JOBS};
 $config{PKG_DIR} = defined $pkgdir ? $pkgdir : $config{PKG_DIR};
 $config{LOG_DIR} = defined $logdir ? $logdir : $config{LOG_DIR};
 $config{STRICT_UPGRADES} = defined $strict_upgrades ? $strict_upgrades : $config{STRICT_UPGRADES};
+$config{SO_CHECK} = defined $so_check ? $so_check : $config{SO_CHECK};
 
 show_usage() if $help;
 show_version() if $version;
@@ -106,6 +108,8 @@ Options:
     with --archive-rebuild, delete only out-of-date packages.
   --sbo-archive|-A [FALSE|/path]:
     reinstall saved packages from this path.
+  --so-check|-X [FALSE|TRUE]:
+    conduct missing shared object checks upon test failure if TRUE.
   --single|-s:
     do not test reverse dependencies.
   --archive-rebuild:
@@ -303,7 +307,7 @@ my $cwd = getcwd();
 chomp(my $begin_time = `/usr/bin/date +%Y-%m-%d-%H:%M`);
 chomp(my $start_date = `/usr/bin/date`);
 
-my (@missing, @bad_lint, @bad_pkg_lint, @fail_to_build, @successful, @unsupported, @built, @copied, @already_installed, @queue_failed);
+my (@missing, @bad_lint, @bad_pkg_lint, @fail_to_build, @successful, @unsupported, @built, @copied, @already_installed, @queue_failed, @solibs);
 my $pkg_dir = $config{PKG_DIR} eq 'FALSE' ? "$config{SBO_HOME}/tests/$begin_time-tests" : "$config{PKG_DIR}/$begin_time-tests";
 my $log_dir = $config{LOG_DIR} eq 'FALSE' ? "$config{SBO_HOME}/logs/$begin_time-logs" : "$config{LOG_DIR}/$begin_time-logs";
 my $logfile = "$config{SBO_HOME}/results/$begin_time.log";
@@ -490,6 +494,22 @@ SECOND: for my $sbo (@to_test) {
 	exit _ERR_INST_SIGNAL if $res == _ERR_INST_SIGNAL;
 	unless ($res == 0) {
 		push @fail_to_build, $sbo unless grep { /^$sbo$/ } @queue_failed;
+		if ($config{SO_CHECK} eq "TRUE") {
+			my @post_test_installed = @{ get_installed_packages("SBO") };
+			if (@post_test_installed) {
+				my $post_test_pkg = +{ map {; $_->{name}, $_->{pkg} } @post_test_installed };
+				my $pkg_count = @post_test_installed;
+				say "Checking $pkg_count installed for missing shared objects...";
+				for my $installed (keys %$post_test_pkg) {
+					unless (solib_check($post_test_pkg->{$installed})) {
+						say "Shared object dependencies missing for $installed.";
+						push @solibs, "$sbo:" unless grep { /^$sbo:$/ } @solibs;
+						push @solibs, "  $installed";
+					}
+				}
+				print "\n";
+			}
+		}
 	} else {
 		push @built, $_ for @$queue;
 	}
@@ -586,6 +606,7 @@ say ("\nBad sbolint:\n  ", join("\n  ", @bad_lint)) if @bad_lint;
 say ("\nBad sbopkglint:\n  ", join("\n  ", @bad_pkg_lint)) if @bad_pkg_lint;
 say ("\nUnsupported:\n  ", join("\n  ", @unsupported)) if @unsupported;
 say ("\nAlready Installed:\n ", join("\n ", @already_installed)) if @already_installed;
+say ("\nMissing Solibs:\n  ", join("\n  ", @solibs)) if @solibs;
 say ("\nUse \"sbotest --single\" to test scripts that are already installed.") if @already_installed;
 
 unlink $logfile if -f $logfile;
@@ -604,7 +625,10 @@ say {$fh} ("\nBad sbolint:\n  ", join("\n  ", @bad_lint)) if @bad_lint;
 say {$fh} ("\nBad sbopkglint:\n  ", join("\n  ", @bad_pkg_lint)) if @bad_pkg_lint;
 say {$fh} ("\nUnsupported:\n  ", join("\n  ", @unsupported)) if @unsupported;
 say {$fh} ("\nAlready Installed:\n ", join("\n ", @already_installed)) if @already_installed;
+say {$fh} ("\nMissing Solibs:\n  ", join("\n  ", @solibs)) if @solibs;
 say {$fh} ("\nUse \"sbotest --single\" to test scripts that are already installed.") if @already_installed;
 
 close $fh;
 say "\nLog written to $logfile.";
+
+END { say ""; }

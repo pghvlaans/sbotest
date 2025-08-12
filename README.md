@@ -12,6 +12,7 @@ See the man page for more information about options and settings!
 #### Post-Release
   * Report scripts with failures in the dependency queue separately
   * Use --archive-reverse to include all reverse dependencies in archive rebuilds
+  * If SO_CHECK is TRUE, check for missing shared object dependencies upon build failure
 
 ## Getting sbotest
 

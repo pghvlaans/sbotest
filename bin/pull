@@ -63,3 +63,5 @@ lint_sbo_config($self, %config);
 
 # failed downloads will exit with a code
 update_tree();
+
+END { say ""; }
