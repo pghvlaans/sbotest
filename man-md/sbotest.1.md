@@ -30,11 +30,11 @@
     sbotest [-f|-s] [-Akl /path|FALSE] [-j #|FALSE] \
             [-D] [--no-archive|--archive-force] sbo_name (sbo_name)
 
-    sbotest [-Al /path|FALSE] [-B BRANCH|FALSE] [-r URL|FALSE] \
-            [-S TRUE|FALSE] [-D] --archive-rebuild
+    sbotest [-Al /path|FALSE] [-S TRUE|FALSE] [-j #|FALSE] \
+            [-D] --archive-rebuild
 
-    sbotest [-Al /path|FALSE] [-B BRANCH|FALSE] [-r URL|FALSE] \
-            [-S TRUE|FALSE] [-D] --archive-reverse
+    sbotest [-Al /path|FALSE] [-S TRUE|FALSE] [-j #|FALSE] \
+            [-D] --archive-reverse
 
 ## DISCLAIMER
 
