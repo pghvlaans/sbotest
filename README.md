@@ -9,7 +9,7 @@ This **sbotools** companion script is written with script maintainers in mind: E
 See the man page for more information about options and settings!
 
 ## Most Recent Changes
-#### Post-Release
+#### 1.1 - 2025-08-14
   * Report scripts with failures in the dependency queue separately
   * Use --archive-reverse to include all reverse dependencies in archive rebuilds
   * If SO_CHECK is TRUE, check for missing shared object dependencies upon build failure
