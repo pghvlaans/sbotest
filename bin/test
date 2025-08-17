@@ -14,7 +14,7 @@ use 5.016;
 use strict;
 use warnings;
 
-use SBO::Lib qw/ :config :const auto_reverse build_cmp get_readme_contents get_inst_names get_installed_packages get_sbo_build_number get_sbo_version get_user_group user_group_exist $conf_file get_sbo_location get_all_available get_build_queue get_full_reverse get_reverse_reqs is_local lint_sbo_config on_blacklist slurp solib_check uniq version_cmp error_code usage_error script_error @concluded @reverse_concluded $slackbuilds_txt /;
+use SBO::Lib qw/ :config :const auto_reverse build_cmp get_readme_contents get_inst_names get_installed_packages get_sbo_build_number get_sbo_version get_user_group user_group_exist $conf_file get_sbo_location get_all_available get_build_queue get_full_reverse get_reverse_reqs in is_local lint_sbo_config on_blacklist slurp solib_check uniq version_cmp error_code usage_error script_error @concluded @reverse_concluded $slackbuilds_txt /;
 
 use Cwd;
 use File::Basename;
@@ -145,8 +145,8 @@ sub clean_packages {
 	my $queue = shift;
 	my $current_sbos = get_inst_names(get_installed_packages('SBO'));
 	for my $sbo (@$current_sbos) {
-		next if grep { /^$sbo$/ } @$inst_sbos;
-		if (defined $queue) { next if grep { /^$sbo$/ } @$queue; }
+		next if in $sbo, @$inst_sbos;
+		if (defined $queue) { next if in $sbo, @$queue; }
 		script_error("removepkg failed.") unless system('/sbin/removepkg', '--terse', $sbo) == 0;
 	}
 }
@@ -169,7 +169,7 @@ sub find_outdated {
 		next unless -f $ls;
 		my ($pkg_name, $pkg_version, $pkg_build) = get_package_info($ls);
 		next unless defined $pkg_name;
-		next if grep { /^$pkg_name$/ } @$inst_sbos;
+		next if in $pkg_name, @$inst_sbos;
 		next if on_blacklist($pkg_name);
 		unless (not_same_as_repo($pkg_name, $pkg_version, $pkg_build)) {
 			push @up_to_date, $pkg_name;
@@ -188,7 +188,7 @@ sub find_outdated {
 	}
 	close $dh;
 	for my $cand (@outdated_prelim) {
-		push @outdated, $cand unless grep { /^$cand$/ } @up_to_date;
+		push @outdated, $cand unless in $cand, @up_to_date;
 	}
 	return() unless @outdated;
 	return @outdated;
@@ -235,9 +235,9 @@ sub install_archived {
 		next if -f "$pkg_dir/$ls";
 		my ($pkg_name, $pkg_version, $pkg_build) = get_package_info($ls);
 		next unless defined $pkg_name;
-		next if grep { /^$pkg_name$/ } @$currently_installed;
-		next unless grep { /^$pkg_name$/ } @$queue;
-		next if grep { /^$pkg_name$/ } @to_test;
+		next if in $pkg_name, @$currently_installed;
+		next unless in $pkg_name, @$queue;
+		next if in $pkg_name, @to_test;
 		next unless same_as_repo($pkg_name, $pkg_version, $pkg_build);
 		if ($dry_run) {
 			push @to_reuse, $ls;
@@ -331,20 +331,21 @@ unless ($dry_run) {
 	make_path($archive_dir) unless -d $archive_dir or $no_archive;
 }
 
+my ($available, $all_fulldeps, @to_test, @rebuild_target);
+my @available = get_all_available();
+
 # nothing installed at the beginning of the test
 # run will be uninstalled during it
 my $inst_sbos = get_inst_names(get_installed_packages('SBO'));
 
-my (@available, $available, $all_fulldeps, @to_test, @rebuild_target);
 unless ($single) {
-	@available = @{ get_all_available() };
-	$available = +{ map {; $_->{name}, $_->{series} } @available };
+	$available = +{ map {; $_, $_ } @available };
 	$all_fulldeps = get_reverse_reqs($available);
 }
 
 FIRST: for my $sbo (@ARGV) {
 	last if $archive_rebuild;
-	if (grep { /^$sbo$/ } @$inst_sbos and ! $single) {
+	if (in $sbo, @$inst_sbos and ! $single) {
 		push @already_installed, $sbo;
 		next FIRST;
 	}
@@ -398,7 +399,7 @@ if ($archive_rebuild and -d $archive_dir) {
 		}
 		for my $rev (@to_rebuild) {
 			push @rebuild_target, $rev;
-			push @to_test, $rev if grep { /^$rev$/ } @archived_names;
+			push @to_test, $rev if in $rev, @archived_names;
 		}
 	}
 }
@@ -432,7 +433,7 @@ SECOND: for my $sbo (@to_test) {
 	install_archived($queue, $archive_dir, $pkg_dir, @to_test) unless $no_archive;
 	if ($dry_run) {
 		for my $cand (@$queue) {
-			push @in_overrides, $cand if is_local($cand) and not grep { /^$cand$/ } @to_reuse;
+			push @in_overrides, $cand if is_local($cand) and not in $cand, @to_reuse;
 		}
 	}
 	# nothing past this point is needed in
@@ -453,9 +454,9 @@ SECOND: for my $sbo (@to_test) {
 		# but not if the target itself has already
 		# been built and does not need an automatic
 		# rebuild; in that case, skip
-		next SECOND if $pkg_name eq $sbo and $is_same and not grep { /^$pkg_name$/ } @rebuild_target;
-		next SECOND if $pkg_name eq $sbo and $is_same and grep { /^$pkg_name$/ } @built;
-		push @to_reinstall, $ls if grep { /^$pkg_name$/ } @$queue and $is_same;
+		next SECOND if $pkg_name eq $sbo and $is_same and not in $pkg_name, @rebuild_target;
+		next SECOND if $pkg_name eq $sbo and $is_same and in $pkg_name, @built;
+		push @to_reinstall, $ls if in $pkg_name, @$queue and $is_same;
 	}
 	close $dh;
 	if (@to_reinstall) {
@@ -463,7 +464,7 @@ SECOND: for my $sbo (@to_test) {
 		REINSTALL: for my $script (@to_reinstall) {
 			# validity of package file name already done
 			my ($script_name, $script_version, $script_build) = get_package_info($script);
-			next REINSTALL if grep { /^$script_name$/ } @$currently_installed or (grep { /^$script_name$/ } @rebuild_target and not grep { /^$script_name$/ } @built);
+			next REINSTALL if in $script_name, @$currently_installed or (in $script_name, @rebuild_target and not in $script_name, @built);
 			script_error("upgradepkg failed.") unless system('/sbin/upgradepkg', '--reinstall', '--install-new', '--terse', $script) == 0;
 		}
 	}
@@ -493,7 +494,7 @@ SECOND: for my $sbo (@to_test) {
 	# it's something
 	exit _ERR_INST_SIGNAL if $res == _ERR_INST_SIGNAL;
 	unless ($res == 0) {
-		push @fail_to_build, $sbo unless grep { /^$sbo$/ } @queue_failed;
+		push @fail_to_build, $sbo unless in $sbo, @queue_failed;
 		if ($config{SO_CHECK} eq "TRUE") {
 			my @post_test_installed = @{ get_installed_packages("SBO") };
 			if (@post_test_installed) {
@@ -503,7 +504,7 @@ SECOND: for my $sbo (@to_test) {
 				for my $installed (keys %$post_test_pkg) {
 					unless (solib_check($post_test_pkg->{$installed})) {
 						say "Shared object dependencies missing for $installed.";
-						push @solibs, "$sbo:" unless grep { /^$sbo:$/ } @solibs;
+						push @solibs, "$sbo:" unless in "$sbo:", @solibs;
 						push @solibs, "  $installed";
 					}
 				}
@@ -524,8 +525,8 @@ SECOND: for my $sbo (@to_test) {
 		my ($pkg_name, $pkg_version, $pkg_build) = get_package_info($ls);
 		next unless defined $pkg_name;
 		my $is_same = same_as_repo($pkg_name, $pkg_version, $pkg_build);
-		if ($is_same and ($archive_force or not grep { /^$pkg_name$/ } @to_test)) {
-			unless (grep { /^$ls$/ } @copied) {
+		if ($is_same and ($archive_force or not in $pkg_name, @to_test)) {
+			unless (in $ls, @copied) {
 				say "Archiving $ls.";
 				push @copied, $ls;
 				copy $ls, "$archive_dir/$ls";
@@ -574,7 +575,7 @@ TESTING: while (my $ls = readdir $dh) {
 	next TESTING if $ls eq "." or $ls eq "..";
 	my ($pkg_name, $pkg_version, $pkg_build) = get_package_info($ls);
 	next TESTING unless defined $pkg_name;
-	next TESTING unless grep { /^$pkg_name$/ } @to_test;
+	next TESTING unless in $pkg_name, @to_test;
 	next TESTING unless same_as_repo($pkg_name, $pkg_version, $pkg_build);
 	my $log_name = "$log_dir/sbopkglint_$pkg_name";
 	my $cmd = "( /usr/bin/sbopkglint $ls 2>&1; echo \$? > $log_dir/.res) | tee $log_name";
