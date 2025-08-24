@@ -14,7 +14,7 @@ use 5.016;
 use strict;
 use warnings;
 
-use SBO::Lib qw/ :config :const auto_reverse build_cmp get_readme_contents get_inst_names get_installed_packages get_sbo_build_number get_sbo_version get_user_group user_group_exist $conf_file get_sbo_location get_all_available get_build_queue get_full_reverse get_reverse_reqs in is_local lint_sbo_config on_blacklist slurp solib_check uniq version_cmp error_code usage_error script_error @concluded @reverse_concluded $slackbuilds_txt /;
+use SBO::Lib qw/ :config :const auto_reverse build_cmp get_readme_contents get_inst_names get_installed_packages get_sbo_build_number get_sbo_version get_user_group user_group_exist $conf_file get_sbo_location get_all_available get_build_queue get_full_reverse get_reverse_reqs in is_local lint_sbo_config on_blacklist rationalize_queue slurp solib_check uniq version_cmp error_code usage_error script_error @concluded @reverse_concluded $slackbuilds_txt /;
 
 use Cwd;
 use File::Basename;
@@ -414,7 +414,8 @@ unless (@to_test) {
 	say ("\nUse \"sbotest --single\" to test scripts that are already installed.") if @already_installed;
 	exit;
 }
-@to_test = uniq(@to_test) if @to_test;
+@to_test = uniq(@to_test);
+@to_test = @{ rationalize_queue([@to_test]) };
 @rebuild_target = uniq(@rebuild_target) if @rebuild_target;
 
 SECOND: for my $sbo (@to_test) {
