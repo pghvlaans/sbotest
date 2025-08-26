@@ -14,7 +14,7 @@ use 5.016;
 use strict;
 use warnings;
 
-use SBO::Lib qw/ :config :const auto_reverse build_cmp get_readme_contents get_inst_names get_installed_packages get_sbo_build_number get_sbo_version get_user_group user_group_exist $conf_file get_sbo_location get_all_available get_build_queue get_full_reverse get_reverse_reqs in is_local lint_sbo_config on_blacklist rationalize_queue slurp solib_check uniq version_cmp error_code usage_error script_error @concluded @reverse_concluded $slackbuilds_txt /;
+use SBO::Lib qw/ :config :const auto_reverse build_cmp check_x32 check_x64 check_multilib get_readme_contents get_inst_names get_installed_packages get_sbo_build_number get_sbo_version get_user_group user_group_exist $conf_file get_sbo_location get_all_available get_build_queue get_full_reverse get_reverse_reqs in is_local lint_sbo_config on_blacklist rationalize_queue slurp solib_check uniq version_cmp error_code usage_error script_error @concluded @reverse_concluded $slackbuilds_txt /;
 
 use Cwd;
 use File::Basename;
@@ -30,6 +30,8 @@ usage_error("The installed sbotools version is incompatible.\n\nUpgrade to 3.7 o
 
 # for --dry-run
 our (@to_remove, @to_reuse, @in_overrides, @dry_run_list);
+
+my $multilib_ready = check_multilib();
 
 my ($help, $version, $pkgdir, $sbo_archive, $jobs, $single, $full_reverse, $logdir, $archive_rebuild, $strict_upgrades, $dry_run, $no_archive, $archive_force, $archive_reverse, $so_check);
 
@@ -71,6 +73,13 @@ usage_error("full-reverse is incompatible with single. Exiting.") if $single and
 usage_error("archive-rebuild, no-archive and archive-force are incompatible. Exiting.") if ($archive_rebuild and ($no_archive or $archive_force)) or ($no_archive and $archive_force);
 
 lint_sbo_config($self, %config);
+
+my ($available, $all_fulldeps, @to_test, @rebuild_target);
+my @available = get_all_available();
+
+# nothing installed at the beginning of the test
+# run will be uninstalled during it
+my $inst_sbos = get_inst_names(get_installed_packages('SBO'));
 
 sub show_usage {
 	print <<"EOF";
@@ -138,10 +147,9 @@ sub show_version {
 }
 
 # remove any _SBo package installed during the test run and
-# not needed for the next build; takes $inst_sbos and,
-# optionally, $queue as an argument; no return value
+# not needed for the next build; optionally takes $queue as
+# an argument; no return value
 sub clean_packages {
-	my $inst_sbos = shift;
 	my $queue = shift;
 	my $current_sbos = get_inst_names(get_installed_packages('SBO'));
 	for my $sbo (@$current_sbos) {
@@ -154,8 +162,8 @@ sub clean_packages {
 # find version- and build-mismatched archived packages, provided
 # they are not blacklisted or already installed
 sub find_outdated {
-	script_error("find_outdated requires two arguments.") unless @_ == 2;
-	my ($sbo_archive, $inst_sbos) = @_;
+	script_error("find_outdated requires an argument.") unless @_ == 1;
+	my $sbo_archive = shift;
 	my (@outdated_prelim, @up_to_date, @outdated);
 	my $temp_cwd = getcwd();
 	if (-d $sbo_archive) {
@@ -222,7 +230,7 @@ sub get_package_info {
 sub install_archived {
 	my ($queue, $sbo_archive, $pkg_dir, @to_test) = @_;
 	my $temp_cwd = getcwd();
-	my $currently_installed = get_inst_names(get_installed_packages('SBO'));
+	my $currently_installed = $dry_run ? $inst_sbos : get_inst_names(get_installed_packages('SBO'));
 	if (-d $sbo_archive) {
 		chdir $sbo_archive;
 	} else {
@@ -252,24 +260,14 @@ sub install_archived {
 # given the system architecture and a location, return
 # 1 if the script is supported and 0 otherwise
 sub is_supported {
-	my ($arch, $location) = @_;
-	my $supported = 1;
+	my $location = shift;
 	return 0 unless defined $arch and defined $location;
-	my $script = basename $location;
-	my $info_file = "$location/$script.info";
-	return 0 unless -f $info_file;
-	open(my $fh, "<", $info_file);
-	return 0 unless defined $fh;
-	my $search = "DOWNLOAD";
-	$search = "DOWNLOAD_x86_64" if $arch eq "x86_64";
-	for my $line (<$fh>) {
-		chomp(my $string = $line);
-		next unless $string =~ m/^$search=\"/;
-		$supported = 0 if $string =~ m/^$search=\"UN(SUPPOR|TES)TED\"/;
-		last;
+	if ($arch =~ /64/ and not $multilib_ready) {
+		return 0 if check_x32 $location;
+	} elsif ($arch !~ /64/) {
+		return 0 if check_x64 $location;
 	}
-	close $fh;
-	return $supported;
+	return 1;
 }
 
 # returns 0 if the archived package matches the repo script,
@@ -331,13 +329,6 @@ unless ($dry_run) {
 	make_path($archive_dir) unless -d $archive_dir or $no_archive;
 }
 
-my ($available, $all_fulldeps, @to_test, @rebuild_target);
-my @available = get_all_available();
-
-# nothing installed at the beginning of the test
-# run will be uninstalled during it
-my $inst_sbos = get_inst_names(get_installed_packages('SBO'));
-
 unless ($single) {
 	$available = +{ map {; $_, $_ } @available };
 	$all_fulldeps = get_reverse_reqs($available);
@@ -355,7 +346,7 @@ FIRST: for my $sbo (@ARGV) {
 		next FIRST;
 	}
 	chdir $dir;
-	unless(is_supported($arch, $dir)) {
+	unless(is_supported($dir)) {
 		push @unsupported, $sbo;
 		next FIRST;
 	}
@@ -389,7 +380,7 @@ if ($archive_rebuild and -d $archive_dir) {
 	close $dh;
 	chdir $cwd;
 	@archived_names = uniq(@archived_names) if @archived_names;
-	@to_test = find_outdated($archive_dir, $inst_sbos);
+	@to_test = find_outdated($archive_dir);
 	for my $base (@to_test) {
 		my @to_rebuild;
 		if ($archive_reverse) {
@@ -421,7 +412,7 @@ unless (@to_test) {
 SECOND: for my $sbo (@to_test) {
 	my $dir = get_sbo_location($sbo);
 	# skip if unsupported
-	unless (is_supported($arch, $dir)) {
+	unless (is_supported($dir)) {
 		push @unsupported, $sbo;
 		next SECOND;
 	}
@@ -430,7 +421,7 @@ SECOND: for my $sbo (@to_test) {
 	chdir $dir;
 	splice @concluded;
 	my $queue = get_build_queue([$sbo], {});
-	clean_packages($inst_sbos, $queue) unless $dry_run;
+	clean_packages($queue) unless $dry_run;
 	install_archived($queue, $archive_dir, $pkg_dir, @to_test) unless $no_archive;
 	if ($dry_run) {
 		for my $cand (@$queue) {
@@ -566,7 +557,7 @@ if ($dry_run) {
 }
 
 # for the last run only
-clean_packages($inst_sbos);
+clean_packages();
 
 chdir $pkg_dir;
 opendir(my $dh, $pkg_dir);
