@@ -11,7 +11,7 @@ See the man page for more information about options and settings!
 ## Most Recent Changes
 #### Post-Release
   * bin/test: Reflect changes in `get_all_available()` and use `in()`
-  * bin/test: Arrange the testing list in build order
+  * bin/test: Arrange the testing list in build order for **\--archive-reverse**
   * bin/test: Faster **\--dry-run**
 
 #### 1.1 - 2025-08-14

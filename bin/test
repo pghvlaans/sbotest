@@ -406,7 +406,7 @@ unless (@to_test) {
 	exit;
 }
 @to_test = uniq(@to_test);
-@to_test = @{ rationalize_queue([@to_test]) };
+@to_test = @{ rationalize_queue([@to_test]) } if $archive_reverse;
 @rebuild_target = uniq(@rebuild_target) if @rebuild_target;
 
 SECOND: for my $sbo (@to_test) {
