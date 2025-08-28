@@ -26,7 +26,7 @@ A SlackBuild is [available](https://slackbuilds.org/repository/15.0/system/sbote
 
 To use a development version:
 
-* Use **[sbotools-git-slackbuild](https://github.com/pghvlaans/sbotools-git-slackbuild/)** to upgrade **sbotools** to version `20250812-f11d5af` at the oldest.
+* Use **[sbotools-git-slackbuild](https://github.com/pghvlaans/sbotools-git-slackbuild/)** to upgrade **sbotools** to version `20250828-f76ca27` at the oldest.
 * Clone the **sbotest** repository.
 * Run `./tools/source_to_slackbuild.sh` from the root of the local repository.
 * Run the SlackBuild in `slackbuild/sbotest`.
