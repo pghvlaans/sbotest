@@ -390,6 +390,7 @@ if ($archive_rebuild and -d $archive_dir) {
 		}
 		for my $rev (@to_rebuild) {
 			push @rebuild_target, $rev;
+			next if in $rev, @to_test;
 			push @to_test, $rev if in $rev, @archived_names;
 		}
 	}
