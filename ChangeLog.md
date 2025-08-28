@@ -1,6 +1,6 @@
 ## ChangeLog.md
 
-#### Post-Release
+#### 1.1.1 - 2025-08-28
   * bin/test: Reflect changes in get_all_available() and use in()
   * bin/test: Arrange the testing list in build order for --archive-reverse
   * bin/test: Faster --dry-run
