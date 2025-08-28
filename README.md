@@ -14,6 +14,7 @@ See the man page for more information about options and settings!
   * bin/test: Arrange the testing list in build order for --archive-reverse
   * bin/test: Faster --dry-run
   * bin/test: Cut out repetitive reverse queue calculations for archive rebuilds
+  * bin/test: Fix --single with already-installed packages
 
 ## Getting sbotest
 

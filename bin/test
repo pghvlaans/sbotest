@@ -480,6 +480,8 @@ SECOND: for my $sbo (@to_test) {
 	if ($res0 and @lesser_queue) {
 		$res = $res0;
 		push @queue_failed, $sbo;
+	} elsif ($single) {
+		$res = system('sboinstall', '-o', '-L', $log_dir, '-k', $pkg_dir, '-i', '-r', '-R', '--reinstall', $sbo);
 	} else {
 		$res = system('sboinstall', '-o', '-L', $log_dir, '-k', $pkg_dir, '-i', '-r', '-R', $sbo);
 	}
