@@ -1,0 +1,9 @@
+sbotest-1.2 TODO
+
+* Add an option to test everything.
+
+  This will take the contents of the archive directory into account.
+  Everything in the repo that isn't archived (and up-to-date) or
+  incompatible will be a test target.
+
+* Make --single work with non-SBO packages in the dependency chain.
