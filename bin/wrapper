@@ -39,7 +39,7 @@ for my $arg (@ARGV) {
 	push @SVARG, $arg;
 }
 
-my $string = "#% SBOTEST V1.1.1 COMPAT %\n";
+my $string = "#% SBOTEST V1.2 COMPAT %\n";
 my $fh;
 unless (open $fh, '<', $util_pm) { say "Failed to open $util_pm for reading."; exit 6; }
 my $is_compatible;
@@ -48,12 +48,16 @@ for my $line (<$fh>) {
 }
 close $fh;
 unless ($is_compatible) {
-	say "This version of sbotools is incompatible with this version of sbotest.\nUpgrade sbotools to at least 3.8.1 or 20250828-f76ca27.";
+	say "This version of sbotools is incompatible with this version of sbotest.\nUpgrade sbotools to at least 4.1.1 or 20251102-8250110.";
 	exit 1;
 }
 
 if ($config) {
-	system('/usr/sbin/sboconfig', @SVARG);
+	if (@SVARG) {
+		system('/usr/sbin/sboconfig', @SVARG);
+	} else {
+		system('/usr/sbin/sboconfig --help');
+	}
 } elsif ($hints) {
 	system('/usr/sbin/sbohints', @SVARG);
 } elsif ($find) {

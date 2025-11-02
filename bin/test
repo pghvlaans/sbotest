@@ -14,7 +14,7 @@ use 5.016;
 use strict;
 use warnings;
 
-use SBO::Lib qw/ :config :const auto_reverse build_cmp check_x32 check_x64 check_multilib get_readme_contents get_inst_names get_installed_packages get_sbo_build_number get_sbo_version get_user_group user_group_exist $conf_file get_sbo_location get_all_available get_build_queue get_full_reverse get_reverse_reqs in is_local lint_sbo_config on_blacklist rationalize_queue slurp solib_check uniq version_cmp error_code usage_error script_error @concluded @reverse_concluded $slackbuilds_txt /;
+use SBO::Lib qw/ :config :const auto_reverse build_cmp check_x32 check_x64 check_multilib get_readme_contents get_inst_names get_installed_packages get_sbo_build_number get_sbo_version get_user_group user_group_exist $conf_file get_sbo_location get_all_available get_build_queue get_full_reverse get_reverse_reqs in is_local lint_sbo_config on_blacklist rationalize_queue series_check slurp solib_check uniq version_cmp error_code usage_error script_error @concluded @reverse_concluded $slackbuilds_txt /;
 
 use Cwd;
 use File::Basename;
@@ -305,7 +305,7 @@ my $cwd = getcwd();
 chomp(my $begin_time = `/usr/bin/date +%Y-%m-%d-%H:%M`);
 chomp(my $start_date = `/usr/bin/date`);
 
-my (@missing, @bad_lint, @bad_pkg_lint, @fail_to_build, @successful, @unsupported, @built, @copied, @already_installed, @queue_failed, @solibs);
+my (@missing, @bad_lint, @bad_pkg_lint, @fail_to_build, @successful, @unsupported, @built, @copied, @already_installed, @queue_failed, @solibs, @bad_perl, @bad_python, @bad_ruby);
 my $pkg_dir = $config{PKG_DIR} eq 'FALSE' ? "$config{SBO_HOME}/tests/$begin_time-tests" : "$config{PKG_DIR}/$begin_time-tests";
 my $log_dir = $config{LOG_DIR} eq 'FALSE' ? "$config{SBO_HOME}/logs/$begin_time-logs" : "$config{LOG_DIR}/$begin_time-logs";
 my $logfile = "$config{SBO_HOME}/results/$begin_time.log";
@@ -502,6 +502,21 @@ SECOND: for my $sbo (@to_test) {
 						push @solibs, "$sbo:" unless in "$sbo:", @solibs;
 						push @solibs, "  $installed";
 					}
+					unless ((series_check($post_test_pkg->{$installed}, "perl"))[0]) {
+						say "$installed is incompatible with system perl.";
+						push @bad_perl, "$sbo:" unless in "$sbo:", @bad_perl;
+						push @bad_perl, "  $installed";
+					}
+					unless ((series_check($post_test_pkg->{$installed}, "python"))[1]) {
+						say "$installed is incompatible with system python.";
+						push @bad_python, "$sbo:" unless in "$sbo:", @bad_python;
+						push @bad_python, "  $installed";
+					}
+					unless ((series_check($post_test_pkg->{$installed}, "ruby"))[2]) {
+						say "$installed is incompatible with system ruby.";
+						push @bad_ruby, "$sbo:" unless in "$sbo:", @bad_ruby;
+						push @bad_ruby, "  $installed";
+					}
 				}
 				print "\n";
 			}
@@ -603,6 +618,9 @@ say ("\nBad sbopkglint:\n  ", join("\n  ", @bad_pkg_lint)) if @bad_pkg_lint;
 say ("\nUnsupported:\n  ", join("\n  ", @unsupported)) if @unsupported;
 say ("\nAlready Installed:\n ", join("\n ", @already_installed)) if @already_installed;
 say ("\nMissing Solibs:\n  ", join("\n  ", @solibs)) if @solibs;
+say ("\nIncompatible perl:\n  ", join("\n  ", @bad_perl)) if @bad_perl;
+say ("\nIncompatible python:\n  ", join("\n  ", @bad_python)) if @bad_python;
+say ("\nIncompatible ruby:\n  ", join("\n  ", @bad_ruby)) if @bad_ruby;
 say ("\nUse \"sbotest --single\" to test scripts that are already installed.") if @already_installed;
 
 unlink $logfile if -f $logfile;
@@ -622,6 +640,9 @@ say {$fh} ("\nBad sbopkglint:\n  ", join("\n  ", @bad_pkg_lint)) if @bad_pkg_lin
 say {$fh} ("\nUnsupported:\n  ", join("\n  ", @unsupported)) if @unsupported;
 say {$fh} ("\nAlready Installed:\n ", join("\n ", @already_installed)) if @already_installed;
 say {$fh} ("\nMissing Solibs:\n  ", join("\n  ", @solibs)) if @solibs;
+say {$fh} ("\nIncompatible perl:\n  ", join("\n  ", @bad_perl)) if @bad_perl;
+say {$fh} ("\nIncompatible python:\n  ", join("\n  ", @bad_python)) if @bad_python;
+say {$fh} ("\nIncompatible ruby:\n  ", join("\n  ", @bad_ruby)) if @bad_ruby;
 say {$fh} ("\nUse \"sbotest --single\" to test scripts that are already installed.") if @already_installed;
 
 close $fh;

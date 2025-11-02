@@ -147,7 +147,16 @@ object dependencies, which can in turn cause builds to fail. To check
 all installed
 .I
 _SBo
-packages for missing dependencies upon build test failure, set
+packages for missing dependencies and incompatibility with system
+.B
+perl\fR\
+\&,
+.B
+python
+and
+.B
+ruby
+upon build test failure, set
 .B
 SO_CHECK
 to
@@ -522,8 +531,16 @@ the setting in
 If
 .B
 TRUE\fR\
-\&, perform a missing shared object dependency check on all
-installed
+\&, perform tests for missing shared object dependencies and
+.B
+perl\fR\
+\&,
+.B
+python
+and
+.B
+ruby
+incompatibility on all installed
 .I
 _SBo
 packages upon build test failure. Overrides the setting in
