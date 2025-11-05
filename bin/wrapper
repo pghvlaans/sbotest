@@ -29,6 +29,10 @@ $ENV{SBOTOOLS_CONF_DIR} = $test_conf_dir;
 $ENV{SBOTEST_MODE} = 1;
 
 my ($config, $find, $hints, $pull, @SVARG);
+unless (@ARGV) {
+	system("/usr/libexec/sbotest/test --help");
+	exit 1;
+}
 $config = 1 if $ARGV[0] eq 'config';
 $pull = 1 if $ARGV[0] eq 'pull';
 $hints = 1 if $ARGV[0] eq 'hints';
