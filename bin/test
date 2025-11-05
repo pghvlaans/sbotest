@@ -79,7 +79,7 @@ my @available = get_all_available();
 
 # nothing installed at the beginning of the test
 # run will be uninstalled during it
-my $inst_sbos = get_inst_names(get_installed_packages('SBO'));
+my $inst_sbos = get_inst_names(get_installed_packages('ALL'));
 
 sub show_usage {
 	print <<"EOF";
@@ -151,6 +151,8 @@ sub show_version {
 # an argument; no return value
 sub clean_packages {
 	my $queue = shift;
+	# "SBO" is intentional here; do not want to put std
+	# packages in an uninstall loop
 	my $current_sbos = get_inst_names(get_installed_packages('SBO'));
 	for my $sbo (@$current_sbos) {
 		next if in $sbo, @$inst_sbos;
@@ -230,7 +232,7 @@ sub get_package_info {
 sub install_archived {
 	my ($queue, $sbo_archive, $pkg_dir, @to_test) = @_;
 	my $temp_cwd = getcwd();
-	my $currently_installed = $dry_run ? $inst_sbos : get_inst_names(get_installed_packages('SBO'));
+	my $currently_installed = $dry_run ? $inst_sbos : get_inst_names(get_installed_packages('ALL'));
 	if (-d $sbo_archive) {
 		chdir $sbo_archive;
 	} else {
@@ -453,7 +455,7 @@ SECOND: for my $sbo (@to_test) {
 	}
 	close $dh;
 	if (@to_reinstall) {
-		my $currently_installed = get_inst_names(get_installed_packages('SBO'));
+		my $currently_installed = get_inst_names(get_installed_packages('ALL'));
 		REINSTALL: for my $script (@to_reinstall) {
 			# validity of package file name already done
 			my ($script_name, $script_version, $script_build) = get_package_info($script);
@@ -491,7 +493,7 @@ SECOND: for my $sbo (@to_test) {
 	unless ($res == 0) {
 		push @fail_to_build, $sbo unless in $sbo, @queue_failed;
 		if ($config{SO_CHECK} eq "TRUE") {
-			my @post_test_installed = @{ get_installed_packages("SBO") };
+			my @post_test_installed = @{ get_installed_packages("ALL") };
 			if (@post_test_installed) {
 				my $post_test_pkg = +{ map {; $_->{name}, $_->{pkg} } @post_test_installed };
 				my $pkg_count = @post_test_installed;
