@@ -35,7 +35,7 @@ my $multilib_ready = check_multilib();
 
 my ($help, $version, $pkgdir, $sbo_archive, $jobs, $single, $full_reverse, $logdir, $archive_rebuild, $strict_upgrades, $dry_run, $no_archive, $archive_force, $archive_reverse, $so_check);
 
-GetOptions(
+my $options_ok = GetOptions(
 	'help|h'              => \$help,
 	'version|v'           => \$version,
 	'pkg-dir|k=s'         => \$pkgdir,
@@ -66,8 +66,15 @@ $config{LOG_DIR} = defined $logdir ? $logdir : $config{LOG_DIR};
 $config{STRICT_UPGRADES} = defined $strict_upgrades ? $strict_upgrades : $config{STRICT_UPGRADES};
 $config{SO_CHECK} = defined $so_check ? $so_check : $config{SO_CHECK};
 
-show_usage() if $help;
+if ($help) {
+	show_usage();
+	exit 0;
+}
 show_version() if $version;
+unless ($options_ok) {
+	show_usage();
+	usage_error "\nOne or more invalid options detected.";
+}
 
 usage_error("full-reverse is incompatible with single. Exiting.") if $single and $full_reverse;
 usage_error("archive-rebuild, no-archive and archive-force are incompatible. Exiting.") if ($archive_rebuild and ($no_archive or $archive_force)) or ($no_archive and $archive_force);
@@ -135,9 +142,8 @@ level of reverse dependencies, calling /usr/bin/sbopkglint for
 testing after after all builds are completed. Built packages
 are archived automatically except for test requests and their
 reverse dependencies.
-
 EOF
-	exit 0;
+	return 1;
 }
 
 sub show_version {
