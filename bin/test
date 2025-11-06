@@ -425,6 +425,7 @@ if ($archive_rebuild and -d $archive_dir) {
 		next REBUILD_CHECK if $ls eq "." or $ls eq "..";
 		my ($pkg_name, $pkg_version, $pkg_build) = get_package_info($ls);
 		next REBUILD_CHECK unless defined $pkg_name;
+		next REBUILD_CHECK unless defined get_sbo_location($pkg_name);
 		push @archived_names, $pkg_name if $pkg_name;
 		push @up_to_date, $pkg_name if same_as_repo($pkg_name, $pkg_version, $pkg_build);
 	}
@@ -445,17 +446,34 @@ if ($archive_rebuild and -d $archive_dir) {
 			push @to_test, $sbo;
 		}
 	}
-	for my $base (@to_test) {
-		my @to_rebuild;
-		if ($archive_reverse) {
-			@to_rebuild = get_full_reverse($base, $available, $all_fulldeps);
-		} else {
-			@to_rebuild = get_full_reverse($base, $available, $all_fulldeps) if auto_reverse($base);
+	# the faster method for finding reverse rebuild candidates depends
+	# on whether there are more test targets or more archived packages
+	if (@to_test < @archived_names) {
+		for my $base (@to_test) {
+			my @to_rebuild;
+			if ($archive_reverse) {
+				@to_rebuild = get_full_reverse($base, $available, $all_fulldeps);
+			} else {
+				@to_rebuild = get_full_reverse($base, $available, $all_fulldeps) if auto_reverse($base);
+			}
+			for my $rev (@to_rebuild) {
+				push @rebuild_target, $rev;
+				next if in $rev, @to_test;
+				push @to_test, $rev if in $rev, @archived_names;
+			}
 		}
-		for my $rev (@to_rebuild) {
-			push @rebuild_target, $rev;
-			next if in $rev, @to_test;
-			push @to_test, $rev if in $rev, @archived_names;
+	} else {
+		for my $base (@archived_names) {
+			next if in $base, @to_test;
+			splice @concluded;
+			my %warnings;
+			my $queue = get_build_queue([$base], \%warnings);
+			for my $item (@$queue) {
+				if (in $item, @to_test) {
+					push @to_test, $base;
+					last;
+				}
+			}
 		}
 	}
 } elsif ($test_everything) {
