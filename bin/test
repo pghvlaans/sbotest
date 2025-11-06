@@ -26,14 +26,14 @@ my $self = "sbotest";
 
 # $sbotest_compatible is exported from SBO::Lib::Util.pm; if
 # it is not present, the sbotools version is too old
-usage_error("The installed sbotools version is incompatible.\n\nUpgrade to 3.7 or 20250702-1cd4031 at the earliest. Exiting.") unless defined $sbotest_compatible;
+usage_error("The installed sbotools version is incompatible.\n\nUpgrade to 4.1.1 or 20251102-8250110 at the earliest. Exiting.") unless defined $sbotest_compatible;
 
 # for --dry-run
-our (@to_remove, @to_reuse, @in_overrides, @dry_run_list);
+our (@to_remove, @to_reuse, %cannot_reuse, @in_overrides, @dry_run_list);
 
 my $multilib_ready = check_multilib();
 
-my ($help, $version, $pkgdir, $sbo_archive, $jobs, $single, $full_reverse, $logdir, $archive_rebuild, $strict_upgrades, $dry_run, $no_archive, $archive_force, $archive_reverse, $so_check);
+my ($help, $version, $pkgdir, $sbo_archive, $jobs, $single, $full_reverse, $logdir, $archive_rebuild, $strict_upgrades, $dry_run, $no_archive, $archive_force, $archive_reverse, $so_check, $test_everything);
 
 my $options_ok = GetOptions(
 	'help|h'              => \$help,
@@ -50,12 +50,11 @@ my $options_ok = GetOptions(
 	'dry-run|D'           => \$dry_run,
 	'no-archive'          => \$no_archive,
 	'archive-force'       => \$archive_force,
+	'test-everything'     => \$test_everything,
 	'so-check|X=s'        => \$so_check,
 );
 
 usage_error("Non-root users can only call sbotest with -h, -v, -D and listing options. Exiting.") unless $< == 0 or $dry_run or $help or $version;
-
-$archive_rebuild = $archive_reverse if $archive_reverse;
 
 $config{SBO_ARCHIVE} = defined $sbo_archive ? $sbo_archive : $config{SBO_ARCHIVE};
 my $archive_dir = $config{SBO_ARCHIVE};
@@ -77,12 +76,20 @@ unless ($options_ok) {
 }
 
 usage_error("full-reverse is incompatible with single. Exiting.") if $single and $full_reverse;
+usage_error("full-reverse is incompatible with test-everything. Exiting.") if $single and $test_everything;
 usage_error("archive-rebuild, no-archive and archive-force are incompatible. Exiting.") if ($archive_rebuild and ($no_archive or $archive_force)) or ($no_archive and $archive_force);
+usage_error("archive-force is incompatible with test-everyhting. Exiting.") if $archive_force and $test_everything;
+
+if ($test_everything) {
+	$archive_reverse = $test_everything unless $no_archive;
+}
+$archive_rebuild = $archive_reverse if $archive_reverse;
 
 lint_sbo_config($self, %config);
 
 my ($available, $all_fulldeps, @to_test, @rebuild_target);
 my @available = get_all_available();
+my %archive_discovered;
 
 # nothing installed at the beginning of the test
 # run will be uninstalled during it
@@ -212,18 +219,30 @@ sub find_outdated {
 
 # given a package string, returns the name, version and
 # build number; if the string does not appear to be an _SBo
-# package, return undef
+# package, return undef; do not parse more than once for a
+# single package string.
 sub get_package_info {
 	my $pkg_name = shift;
+	my $file_name = $pkg_name;
 	script_error("get_package_info requires an argument.") unless defined $pkg_name;
-	# make sure the string could name a valid SBo package;
-	# see /sbin/makepkg /^# Identify package extension
-	return undef unless $pkg_name =~ m/_SBo(|compat32)\.(t[gxlb]z|tar\.([gxl]z|bz2|lzma))$/;
-	my @pkg_string = split '-', $pkg_name;
-	my $pkg_version = $pkg_string[-3];
-	my $pkg_build = $pkg_string[-1];
-	$pkg_build =~ s/[\D].*$//;
-	$pkg_name =~ s/(-[^-]*){3}$//;
+	my ($pkg_version, $pkg_build);
+	unless (exists $archive_discovered{$pkg_name}) {
+		# make sure the string could name a valid SBo package;
+		# see /sbin/makepkg /^# Identify package extension
+		return undef unless $pkg_name =~ m/_SBo(|compat32)\.(t[gxlb]z|tar\.([gxl]z|bz2|lzma))$/;
+		my @pkg_string = split '-', $pkg_name;
+		$pkg_version = $pkg_string[-3];
+		$pkg_build = $pkg_string[-1];
+		$pkg_build =~ s/[\D].*$//;
+		$pkg_name =~ s/(-[^-]*){3}$//;
+		$archive_discovered{$file_name}->{version} = $pkg_version;
+		$archive_discovered{$file_name}->{build} = $pkg_build;
+		$archive_discovered{$file_name}->{name} = $pkg_name;
+	} else {
+		$pkg_version = $archive_discovered{$file_name}->{version};
+		$pkg_build = $archive_discovered{$file_name}->{build};
+		$pkg_name = $archive_discovered{$file_name}->{name};
+	}
 	return ($pkg_name, $pkg_version, $pkg_build);
 }
 
@@ -245,16 +264,39 @@ sub install_archived {
 		return();
 	}
 	opendir(my $dh, $sbo_archive);
+	# because the contents of this directory (and installed
+	# packages) can change outside of a dry run context, the
+	# %cannot_reuse hash is only for dry runs; the time spent
+	# here is not really noticeable if test targets are actually
+	# being queued up and built one after another
 	while (my $ls = readdir $dh) {
-		next if $ls eq "." or $ls eq "..";
-		next unless -f $ls;
-		next if -f "$pkg_dir/$ls";
+		next if exists $cannot_reuse{$ls};
 		my ($pkg_name, $pkg_version, $pkg_build) = get_package_info($ls);
-		next unless defined $pkg_name;
-		next if in $pkg_name, @$currently_installed;
+		unless (defined $pkg_name) {
+			$cannot_reuse{$ls} = 1 if $dry_run;
+			next;
+		}
 		next unless in $pkg_name, @$queue;
-		next if in $pkg_name, @to_test;
-		next unless same_as_repo($pkg_name, $pkg_version, $pkg_build);
+		unless (-f $ls) {
+			$cannot_reuse{$ls} = 1 if $dry_run;
+			next;
+		}
+		if (-f "$pkg_dir/$ls") {
+			$cannot_reuse{$ls} = 1 if $dry_run;
+			next;
+		}
+		unless (same_as_repo($pkg_name, $pkg_version, $pkg_build)) {
+			$cannot_reuse{$ls} = 1 if $dry_run;
+			next;
+		}
+		if (in $pkg_name, @$currently_installed) {
+			$cannot_reuse{$ls} = 1 if $dry_run;
+			next;
+		}
+		if (in $pkg_name, @to_test) {
+			$cannot_reuse{$ls} = 1 if $dry_run;
+			next;
+		}
 		if ($dry_run) {
 			push @to_reuse, $ls;
 		} else {
@@ -304,7 +346,7 @@ sub same_as_repo {
 
 usage_error("sbotools needs to be installed.") unless -x "/usr/sbin/sboconfig";
 usage_error("sbo-maintainer-tools needs to be installed.") unless -x "/usr/bin/sbopkglint";
-show_usage() unless @ARGV or $archive_rebuild;
+show_usage() unless @ARGV or $archive_rebuild or $test_everything;
 
 # reminder if no SLACKBUILDS.TXT
 usage_error("Use \"sbotest pull\" to fetch the repository. Exiting.") unless -s $slackbuilds_txt;
@@ -376,7 +418,7 @@ FIRST: for my $sbo (@ARGV) {
 }
 
 if ($archive_rebuild and -d $archive_dir) {
-	my @archived_names;
+	my (@archived_names, @up_to_date);
 	chdir $archive_dir;
 	opendir(my $dh, $archive_dir);
 	REBUILD_CHECK: while (my $ls = readdir $dh) {
@@ -384,11 +426,25 @@ if ($archive_rebuild and -d $archive_dir) {
 		my ($pkg_name, $pkg_version, $pkg_build) = get_package_info($ls);
 		next REBUILD_CHECK unless defined $pkg_name;
 		push @archived_names, $pkg_name if $pkg_name;
+		push @up_to_date, $pkg_name if same_as_repo($pkg_name, $pkg_version, $pkg_build);
 	}
 	close $dh;
 	chdir $cwd;
 	@archived_names = uniq(@archived_names) if @archived_names;
 	@to_test = find_outdated($archive_dir);
+	if ($test_everything) {
+		for my $sbo (@available) {
+			my $dir = get_sbo_location($sbo);
+			next unless defined $dir and -d $dir;
+			next if on_blacklist($sbo);
+			unless (is_supported($dir)) {
+				push @unsupported, $sbo;
+				next;
+			}
+			next if in $sbo, @up_to_date;
+			push @to_test, $sbo;
+		}
+	}
 	for my $base (@to_test) {
 		my @to_rebuild;
 		if ($archive_reverse) {
@@ -401,6 +457,14 @@ if ($archive_rebuild and -d $archive_dir) {
 			next if in $rev, @to_test;
 			push @to_test, $rev if in $rev, @archived_names;
 		}
+	}
+} elsif ($test_everything) {
+	for my $sbo (@available) {
+		my $dir = get_sbo_location($sbo);
+		next unless defined $dir and -d $dir;
+		next if on_blacklist($sbo);
+		next unless is_supported($dir);
+		push @to_test, $sbo;
 	}
 }
 
@@ -415,7 +479,7 @@ unless (@to_test) {
 	exit;
 }
 @to_test = uniq(@to_test);
-@to_test = @{ rationalize_queue([@to_test]) } if $archive_reverse;
+@to_test = @{ rationalize_queue([@to_test]) } if $archive_rebuild or $test_everything;
 @rebuild_target = uniq(@rebuild_target) if @rebuild_target;
 
 SECOND: for my $sbo (@to_test) {
@@ -431,7 +495,7 @@ SECOND: for my $sbo (@to_test) {
 	splice @concluded;
 	my $queue = get_build_queue([$sbo], {});
 	clean_packages($queue) unless $dry_run;
-	install_archived($queue, $archive_dir, $pkg_dir, @to_test) unless $no_archive;
+	install_archived($queue, $archive_dir, $pkg_dir, @to_test) unless $no_archive or $pkg_dir eq $archive_dir;
 	if ($dry_run) {
 		for my $cand (@$queue) {
 			push @in_overrides, $cand if is_local($cand) and not in $cand, @to_reuse;
@@ -558,10 +622,11 @@ if ($dry_run) {
 	@to_reuse = uniq(sort(@to_reuse)) if @to_reuse;
 	@to_remove = uniq(sort(@to_remove)) if @to_remove;
 	@in_overrides = uniq(sort(@in_overrides)) if @in_overrides;
-	@to_test = sort(@dry_run_list) if @dry_run_list;
+	@unsupported = uniq(sort(@unsupported))if @unsupported;
 	@already_installed = sort(@already_installed) if @already_installed;
 
 	my $message = $archive_rebuild ? "Archive Rebuild Dry Run:" : "Dry Run:";
+	$message = $test_everything ? "Full Archive Test Dry Run:" : $message;
 	say "$message";
 	say ("\nRequested: ", join(" ", @ARGV)) if @ARGV;
 	say ("\nMissing: ", join(" ", @missing)) if @missing;
@@ -572,12 +637,8 @@ if ($dry_run) {
 		my $reuse_number = @to_reuse;
 		say "\nTo reuse $reuse_number from $archive_dir.";
 	}
-	if ($archive_rebuild) {
-		say ("\nScripts to rebuild:\n  ", join("\n  ", @dry_run_list)) if @dry_run_list;
-		say ("\nTo remove from archive:\n  ", join("\n  ", @to_remove)) if @to_remove;
-	} else {
-		say ("\nScripts to test:\n  ", join("\n  ", @to_test)) if @to_test;
-	}
+	say ("\nTest queue:\n  ", join("\n  ", @dry_run_list)) if @dry_run_list;
+	say ("\nTo remove from archive:\n  ", join("\n  ", @to_remove)) if @to_remove;
 	say ("\nUse \"sbotest --single\" to test scripts that are already installed.") if @already_installed;
 	exit;
 }

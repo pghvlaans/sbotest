@@ -22,6 +22,8 @@ sbotest [-Al /path|FALSE] [-SX TRUE|FALSE] [-j #|FALSE] \\
 sbotest [-Al /path|FALSE] [-SX TRUE|FALSE] [-j #|FALSE] \\
         [-D] --archive-reverse
 .P
+sbotest [-Al /path|FALSE] [-SX TRUE|FALSE] [-j #|FALSE] \\
+	[--no-archive|--archive-force] --test-everything
 .SH DISCLAIMER
 .P
 .B
@@ -141,6 +143,17 @@ tag are unaffected, and no package that is already installed when
 .B
 sbotest
 starts can be removed or reinstalled.
+.P
+For a full-repository test, run
+.B
+sbotest
+with the
+.B
+--test-everything
+option. This will build and test all packages that are
+available, supported, not on the blacklist or up-to-date
+in the archive. Reverse rebuilds are performed when rebuilding
+archived packages.
 .P
 Packages in the archive with missed rebuilds may lack required shared
 object dependencies, which can in turn cause builds to fail. To check
@@ -522,6 +535,28 @@ FALSE\fR\
 the setting in
 .I
 /etc/sbotest/sbotest.conf\fR\
+\&.
+.RE
+.P
+.B
+--test-everything
+.RS
+Perform a full-repository test, respecting the blacklist. All packages
+are rebuilt, except for those that are unsupported or archived and
+up-to-date. Unless running with
+.B
+--no-archive\fR\
+\&, ensure that the package archive directory exists before running.
+.P
+Please note that archived reverse dependencies of outdated packages are
+rebuilt regardless of whether they are up-to-date.
+.P
+Incompatible with
+.B
+--single
+and
+.B
+--archive-force\fR\
 \&.
 .RE
 .P
