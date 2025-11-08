@@ -481,7 +481,10 @@ if ($archive_rebuild and -d $archive_dir) {
 		my $dir = get_sbo_location($sbo);
 		next unless defined $dir and -d $dir;
 		next if on_blacklist($sbo);
-		next unless is_supported($dir);
+		unless is_supported($dir) {
+			push @unsupported, $sbo;
+			next;
+		}
 		push @to_test, $sbo;
 	}
 }
@@ -644,7 +647,7 @@ if ($dry_run) {
 	@already_installed = sort(@already_installed) if @already_installed;
 
 	my $message = $archive_rebuild ? "Archive Rebuild Dry Run:" : "Dry Run:";
-	$message = $test_everything ? "Full Archive Test Dry Run:" : $message;
+	$message = $test_everything ? "Full Repo Test Dry Run:" : $message;
 	say "$message";
 	say ("\nRequested: ", join(" ", @ARGV)) if @ARGV;
 	say ("\nMissing: ", join(" ", @missing)) if @missing;
