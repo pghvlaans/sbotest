@@ -320,6 +320,92 @@ sub is_supported {
 	return 1;
 }
 
+# takes a test queue and a weight for avoiding removals as opposed to
+# installations; reorganize the queue to attempt to minimize package
+# installations and removals; return the rearranged queue and the
+# number of expected pkgtools events
+sub optimize_queue {
+	script_error("optimize_queue requires two arguments.") unless @_ == 2;
+	my ($queue, $weight) = @_;
+	my %warnings;
+	my (%enqueued, %sbo_queues, %optimized, @reqs_queue, %have_requirements, @optimized_queue);
+	my $cumulative = 0;
+	while (my $sbo = shift @$queue) {
+		splice @concluded;
+		my $sbo_queue = get_build_queue([$sbo], \%warnings);
+		pop @$sbo_queue;
+		unless (@$sbo_queue) {
+			push @optimized_queue, $sbo;
+			$optimized{$sbo} = 1;
+			next;
+		}
+		$sbo_queues{$sbo} = \@$sbo_queue;
+		$enqueued{$sbo}->{$_} = 1 for @$sbo_queue;
+		push @reqs_queue, $sbo;
+	}
+	$have_requirements{$_} = 1 for @reqs_queue;
+	return [ @optimized_queue ] unless @reqs_queue;
+
+	OPTIMIZE: while (my $sbo = shift @reqs_queue) {
+		next if $optimized{$sbo};
+		for my $req (@{$sbo_queues{$sbo}}) {
+			unless ($optimized{$req}) {
+				if ($have_requirements{$req}) {
+					push @reqs_queue, $sbo;
+					next OPTIMIZE;
+				}
+			}
+		}
+		$optimized{$sbo} = 1;
+		push @optimized_queue, $sbo;
+		$cumulative += @{$sbo_queues{$sbo}} unless $cumulative;
+		my (@min_scores, %scores, %unweighted_scores);
+		my $min_score;
+		CANDS: for my $cand (@reqs_queue) {
+			next if $optimized{$cand};
+			for my $req (@{$sbo_queues{$cand}}) {
+				unless ($optimized{$req}) {
+					next CANDS if $have_requirements{$req};
+				}
+			}
+			my $score = 0;
+			my $unweighted_score = 0;
+			for my $req (@{$sbo_queues{$cand}}) {
+				unless (exists $enqueued{$sbo}->{$req}) {
+					$score++;
+					$unweighted_score++;
+				}
+			}
+			for my $req (@{$sbo_queues{$sbo}}) {
+				unless (exists $enqueued{$cand}->{$req}) {
+					$score += $weight;
+					$unweighted_score++;
+				}
+			}
+			unless ($score) {
+				unshift @reqs_queue, $cand;
+				next OPTIMIZE;
+			}
+			$scores{$cand} = $score;
+			$unweighted_scores{$cand} = $unweighted_score;
+			push @min_scores, $cand unless @min_scores;
+			$min_score = $score unless defined $min_score;
+			if ($score < $min_score) {
+				splice @min_scores;
+				$min_score = $score;
+			}
+			push @min_scores, $cand if $min_score == $score;
+		}
+		if (@min_scores) {
+			unshift @reqs_queue, $min_scores[0];
+			$cumulative += $unweighted_scores{$min_scores[0]};
+		} else {
+			$cumulative += @{$sbo_queues{$sbo}};
+		}
+	}
+	return ([ @optimized_queue ], $cumulative);
+}
+
 # returns 0 if the archived package matches the repo script,
 # -1 if the archived package is out-of-date, and 1 if the
 # archived package is of a later version
@@ -418,6 +504,7 @@ FIRST: for my $sbo (@ARGV) {
 }
 
 if ($archive_rebuild and -d $archive_dir) {
+	print "Getting an initial test queue...\n";
 	my (@archived_names, @up_to_date);
 	chdir $archive_dir;
 	opendir(my $dh, $archive_dir);
@@ -476,17 +563,20 @@ if ($archive_rebuild and -d $archive_dir) {
 			}
 		}
 	}
+	print "  Done.\n";
 } elsif ($test_everything) {
+	print "Getting an initial test queue...\n";
 	for my $sbo (@available) {
 		my $dir = get_sbo_location($sbo);
 		next unless defined $dir and -d $dir;
 		next if on_blacklist($sbo);
-		unless is_supported($dir) {
+		unless (is_supported($dir)) {
 			push @unsupported, $sbo;
 			next;
 		}
 		push @to_test, $sbo;
 	}
+	print "  Done.\n";
 }
 
 unless (@to_test) {
@@ -500,7 +590,33 @@ unless (@to_test) {
 	exit;
 }
 @to_test = uniq(@to_test);
-@to_test = @{ rationalize_queue([@to_test]) } if $archive_rebuild or $test_everything;
+if ($archive_rebuild or $test_everything) {
+	print "Ensuring correct dependency order...\n";
+	@to_test = @{ rationalize_queue([@to_test]) };
+	print "  Done.\n";
+}
+if (@to_test > 2) {
+	print "Reducing the number of package installations and removals...\n";
+	my $weight = 1;
+	my $cumulative = 0;
+	my $cumulative_old = 10000000000;
+	my @to_test_prev = @to_test;
+	while ($cumulative < $cumulative_old) {
+		my $to_test_new;
+		($to_test_new, $cumulative) = optimize_queue([@to_test], $weight);
+		my @to_test_new = @{ $to_test_new };
+		if ($cumulative < $cumulative_old) {
+			$cumulative_old = $cumulative;
+			$cumulative = 0;
+			@to_test_prev = @to_test_new;
+			$weight++;
+		} else {
+			$weight--;
+			@to_test = @to_test_prev;
+		}
+	}
+	print "  Done. Package removal avoidance factor of $weight.\n";
+}
 @rebuild_target = uniq(@rebuild_target) if @rebuild_target;
 
 SECOND: for my $sbo (@to_test) {
@@ -646,6 +762,7 @@ if ($dry_run) {
 	@unsupported = uniq(sort(@unsupported))if @unsupported;
 	@already_installed = sort(@already_installed) if @already_installed;
 
+	say "";
 	my $message = $archive_rebuild ? "Archive Rebuild Dry Run:" : "Dry Run:";
 	$message = $test_everything ? "Full Repo Test Dry Run:" : $message;
 	say "$message";

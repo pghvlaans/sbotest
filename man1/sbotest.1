@@ -23,7 +23,7 @@ sbotest [-Al /path|FALSE] [-SX TRUE|FALSE] [-j #|FALSE] \\
         [-D] --archive-reverse
 .P
 sbotest [-Al /path|FALSE] [-SX TRUE|FALSE] [-j #|FALSE] \\
-	[--no-archive|--archive-force] --test-everything
+        [--no-archive|--archive-force] --test-everything
 .SH DISCLAIMER
 .P
 .B
@@ -94,9 +94,8 @@ sbotest find --first-reverse
 or pass
 .B
 --dry-run
-for a list of scripts that would be tested, if compatible.
-To test all reverse dependencies of the requested scripts,
-use the
+for a list of scripts that would be tested. To test all reverse
+dependencies of the requested scripts, use the
 .B
 --full-reverse
 option;
@@ -108,8 +107,12 @@ scripts can be tested only with
 --single\fR\
 \&; the existing package on the system is not replaced.
 .P
-Each test target has a separate testing workflow. First,
-dependencies saved to the
+Each test target has a separate testing workflow.
+.B
+sbotest
+attempts to minimize package installations and removals during the
+test run when ordering the testing queue. First, dependencies saved
+to the
 .B
 SBO_ARCHIVE
 directory (default
@@ -151,7 +154,7 @@ with the
 .B
 --test-everything
 option. This will build and test all packages that are
-available, supported, not on the blacklist or up-to-date
+available, supported, and not on the blacklist or up-to-date
 in the archive. Reverse rebuilds are performed when rebuilding
 archived packages.
 .P

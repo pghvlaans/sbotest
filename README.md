@@ -17,6 +17,7 @@ See the man page for more information about options and settings!
   * bin/test: Properly rationalize the queue with --archive-rebuild
   * bin/test: Add --test-everything
     * Thanks to dchmelik for the feedback.
+  * bin/test: Attempt to optimize test queues to reduce the number of package installations and removals
 
 #### 1.1.2 - 2025-09-19
   * bin/test: Fix --single with already-installed scripts
