@@ -18,6 +18,7 @@ See the man page for more information about options and settings!
   * bin/test: Add --test-everything
     * Thanks to dchmelik for the feedback.
   * bin/test: Attempt to optimize test queues to reduce the number of package installations and removals
+  * Compatibility bump for new SBO::Lib::Build queue handling
 
 #### 1.1.2 - 2025-09-19
   * bin/test: Fix --single with already-installed scripts
@@ -35,7 +36,7 @@ A SlackBuild is [available](https://slackbuilds.org/repository/15.0/system/sbote
 
 To use a development version:
 
-* Use **[sbotools-git-slackbuild](https://github.com/pghvlaans/sbotools-git-slackbuild/)** to upgrade **sbotools** to version `20251102-8250110` at the oldest.
+* Use **[sbotools-git-slackbuild](https://github.com/pghvlaans/sbotools-git-slackbuild/)** to upgrade **sbotools** to version `20251109-1605eca` at the oldest.
 * Clone the **sbotest** repository.
 * Run `./tools/source_to_slackbuild.sh` from the root of the local repository.
 * Run the SlackBuild in `slackbuild/sbotest`.

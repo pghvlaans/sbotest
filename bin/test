@@ -14,7 +14,7 @@ use 5.016;
 use strict;
 use warnings;
 
-use SBO::Lib qw/ :config :const auto_reverse build_cmp check_x32 check_x64 check_multilib get_readme_contents get_inst_names get_installed_packages get_sbo_build_number get_sbo_version get_user_group user_group_exist $conf_file get_sbo_location get_all_available get_build_queue get_full_reverse get_reverse_reqs in is_local lint_sbo_config on_blacklist rationalize_queue series_check slurp solib_check uniq version_cmp error_code usage_error script_error @concluded @reverse_concluded $slackbuilds_txt /;
+use SBO::Lib qw/ :config :const auto_reverse build_cmp check_x32 check_x64 check_multilib get_readme_contents get_inst_names get_installed_packages get_sbo_build_number get_sbo_version get_user_group user_group_exist $conf_file get_sbo_location get_all_available get_build_queue get_full_reverse get_reverse_reqs in is_local lint_sbo_config on_blacklist rationalize_queue series_check slurp solib_check uniq version_cmp error_code usage_error script_error @reverse_concluded $slackbuilds_txt /;
 
 use Cwd;
 use File::Basename;
@@ -327,12 +327,10 @@ sub is_supported {
 sub optimize_queue {
 	script_error("optimize_queue requires two arguments.") unless @_ == 2;
 	my ($queue, $weight) = @_;
-	my %warnings;
 	my (%enqueued, %sbo_queues, %optimized, @reqs_queue, %have_requirements, @optimized_queue);
 	my $cumulative = 0;
 	while (my $sbo = shift @$queue) {
-		splice @concluded;
-		my $sbo_queue = get_build_queue([$sbo], \%warnings);
+		my $sbo_queue = get_build_queue([$sbo]);
 		pop @$sbo_queue;
 		unless (@$sbo_queue) {
 			push @optimized_queue, $sbo;
@@ -489,7 +487,6 @@ FIRST: for my $sbo (@ARGV) {
 	next FIRST if on_blacklist($sbo);
 	push @to_test, $sbo;
 	splice @reverse_concluded;
-	splice @concluded;
 	unless ($single) {
 		my @available_reverse;
 		if ($full_reverse) {
@@ -552,9 +549,7 @@ if ($archive_rebuild and -d $archive_dir) {
 	} else {
 		for my $base (@archived_names) {
 			next if in $base, @to_test;
-			splice @concluded;
-			my %warnings;
-			my $queue = get_build_queue([$base], \%warnings);
+			my $queue = get_build_queue([$base]);
 			for my $item (@$queue) {
 				if (in $item, @to_test) {
 					push @to_test, $base;
@@ -629,8 +624,7 @@ SECOND: for my $sbo (@to_test) {
 	# skip if blacklisted
 	next SECOND if on_blacklist($sbo);
 	chdir $dir;
-	splice @concluded;
-	my $queue = get_build_queue([$sbo], {});
+	my $queue = get_build_queue([$sbo]);
 	clean_packages($queue) unless $dry_run;
 	install_archived($queue, $archive_dir, $pkg_dir, @to_test) unless $no_archive or $pkg_dir eq $archive_dir;
 	if ($dry_run) {

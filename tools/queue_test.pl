@@ -42,14 +42,12 @@ my $bad_queue = 0;
 get_all_available();
 
 for my $sbo (@test_queue) {
-	splice @concluded;
 	$bad_queue++ if $already_queued{$sbo};
 	$package_count++;
 	print "\n$sbo: $package_count\n";
 	print "ADDED TOO EARLY\n" if $already_queued{$sbo};
-	my %warnings;
 	my (@to_install, @to_remove);
-	my $queue = get_build_queue([$sbo], \%warnings);
+	my $queue = get_build_queue([$sbo]);
 	pop @$queue;
 	$already_queued{$_} = 1 for @$queue;
 	@installed_outgoing = @installed;
