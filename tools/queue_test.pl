@@ -14,7 +14,7 @@
 use 5.016;
 use strict;
 
-use SBO::Lib qw/ :config :const get_build_queue in get_all_available slurp @concluded /;
+use SBO::Lib qw/ :config :const get_build_queue in get_all_available slurp /;
 
 unless (@ARGV) {
 	say "Usage - ./queue_test.pl file";
