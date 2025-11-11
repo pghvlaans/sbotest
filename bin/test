@@ -320,13 +320,13 @@ sub is_supported {
 	return 1;
 }
 
-# takes a test queue and a weight for avoiding removals as opposed to
-# installations; reorganize the queue to attempt to minimize package
-# installations and removals; return the rearranged queue and the
-# number of expected pkgtools events
+# takes a test queue, a weight for avoiding removals, an index to use
+# to break ties and a cutoff value; reorganize the queue to attempt
+# to minimize package installations and removals; return the
+# rearranged queue and the number of expected pkgtools events
 sub optimize_queue {
-	script_error("optimize_queue requires two arguments.") unless @_ == 2;
-	my ($queue, $weight) = @_;
+	script_error("optimize_queue requires four arguments.") unless @_ == 4;
+	my ($queue, $weight, $index, $cutoff) = @_;
 	my (%enqueued, %sbo_queues, %optimized, @reqs_queue, %have_requirements, @optimized_queue);
 	my $cumulative = 0;
 	while (my $sbo = shift @$queue) {
@@ -345,10 +345,10 @@ sub optimize_queue {
 	return [ @optimized_queue ] unless @reqs_queue;
 
 	OPTIMIZE: while (my $sbo = shift @reqs_queue) {
-		next if $optimized{$sbo};
+		next if exists $optimized{$sbo};
 		for my $req (@{$sbo_queues{$sbo}}) {
-			unless ($optimized{$req}) {
-				if ($have_requirements{$req}) {
+			if (exists $have_requirements{$req}) {
+				unless (exists $optimized{$req}) {
 					push @reqs_queue, $sbo;
 					next OPTIMIZE;
 				}
@@ -357,13 +357,15 @@ sub optimize_queue {
 		$optimized{$sbo} = 1;
 		push @optimized_queue, $sbo;
 		$cumulative += @{$sbo_queues{$sbo}} unless $cumulative;
-		my (@min_scores, %scores, %unweighted_scores);
-		my $min_score;
+		my (@min_scores, @min_indices, %scores, %unweighted_scores);
+		my $min_score = 100000000;
+		my $reqs_index = -1;
 		CANDS: for my $cand (@reqs_queue) {
-			next if $optimized{$cand};
+			$reqs_index++;
+			next if exists $optimized{$cand};
 			for my $req (@{$sbo_queues{$cand}}) {
-				unless ($optimized{$req}) {
-					next CANDS if $have_requirements{$req};
+				if (exists $have_requirements{$req}) {
+					next CANDS unless exists $optimized{$req};
 				}
 			}
 			my $score = 0;
@@ -373,30 +375,37 @@ sub optimize_queue {
 					$score++;
 					$unweighted_score++;
 				}
+				next CANDS if $score > $min_score;
 			}
 			for my $req (@{$sbo_queues{$sbo}}) {
 				unless (exists $enqueued{$cand}->{$req}) {
 					$score += $weight;
 					$unweighted_score++;
 				}
+				next CANDS if $score > $min_score;
 			}
 			unless ($score) {
+				splice @reqs_queue, $reqs_index, 1;
 				unshift @reqs_queue, $cand;
 				next OPTIMIZE;
 			}
-			$scores{$cand} = $score;
 			$unweighted_scores{$cand} = $unweighted_score;
-			push @min_scores, $cand unless @min_scores;
-			$min_score = $score unless defined $min_score;
 			if ($score < $min_score) {
 				splice @min_scores;
+				splice @min_indices;
 				$min_score = $score;
 			}
-			push @min_scores, $cand if $min_score == $score;
+			if ($min_score == $score) {
+				push @min_scores, $cand;
+				push @min_indices, $reqs_index;
+			}
 		}
 		if (@min_scores) {
-			unshift @reqs_queue, $min_scores[0];
-			$cumulative += $unweighted_scores{$min_scores[0]};
+			my $use_index = $index < @min_scores ? $index : -1;
+			splice @reqs_queue, $min_indices[$use_index], 1;
+			unshift @reqs_queue, $min_scores[$use_index];
+			$cumulative += $unweighted_scores{$min_scores[$use_index]};
+			return ([ @optimized_queue ], $cumulative) if $cutoff < $cumulative;
 		} else {
 			$cumulative += @{$sbo_queues{$sbo}};
 		}
@@ -585,20 +594,17 @@ unless (@to_test) {
 	exit;
 }
 @to_test = uniq(@to_test);
-if ($archive_rebuild or $test_everything) {
-	print "Ensuring correct dependency order...\n";
-	@to_test = @{ rationalize_queue([@to_test]) };
-	print "  Done.\n";
-}
 if (@to_test > 2) {
 	print "Reducing the number of package installations and removals...\n";
+	@to_test = sort @to_test;
 	my $weight = 1;
 	my $cumulative = 0;
 	my $cumulative_old = 10000000000;
+	my @tied_scripts;
 	my @to_test_prev = @to_test;
 	while ($cumulative < $cumulative_old) {
-		my $to_test_new;
-		($to_test_new, $cumulative) = optimize_queue([@to_test], $weight);
+		print "  Trying a removal avoidance weight of $weight...\n";
+		my ($to_test_new, $cumulative) = optimize_queue([@to_test_prev], $weight, 0, $cumulative_old);
 		my @to_test_new = @{ $to_test_new };
 		if ($cumulative < $cumulative_old) {
 			$cumulative_old = $cumulative;
@@ -607,10 +613,64 @@ if (@to_test > 2) {
 			$weight++;
 		} else {
 			$weight--;
-			@to_test = @to_test_prev;
+			print "  Further testing for a weights around $weight...\n";
+			my $weight_3 = $weight + 0.5;
+			my $weight_2 = $weight + 0.25;
+			my $weight_1 = $weight - 0.25;
+			my $weight_0 = $weight - 0.5;
+			my $cutoff = $cumulative_old;
+			my ($to_test_back, $cumulative_back) = optimize_queue([@to_test_prev], $weight, -1, $cutoff);
+			$cutoff = $cumulative_old < $cumulative_back ? $cumulative_old : $cumulative_back;
+			my ($to_test_0_front, $cumulative_0_front) = optimize_queue([@to_test_prev], $weight_0, 0, $cutoff);
+			$cutoff = $cumulative_old < $cumulative_0_front ? $cumulative_old : $cumulative_0_front;
+			my ($to_test_0_back, $cumulative_0_back) = optimize_queue([@to_test_prev], $weight_0, -1, $cutoff);
+			$cutoff = $cumulative_old < $cumulative_0_back ? $cumulative_old : $cumulative_0_back;
+			my ($to_test_1_front, $cumulative_1_front) = optimize_queue([@to_test_prev], $weight_1, 0, $cutoff);
+			$cutoff = $cumulative_old < $cumulative_1_front ? $cumulative_old : $cumulative_1_front;
+			my ($to_test_1_back, $cumulative_1_back) = optimize_queue([@to_test_prev], $weight_1, -1, $cutoff);
+			$cutoff = $cumulative_old < $cumulative_1_back ? $cumulative_old : $cumulative_1_back;
+			my ($to_test_2_front, $cumulative_2_front) = optimize_queue([@to_test_prev], $weight_2, 0, $cutoff);
+			$cutoff = $cumulative_old < $cumulative_2_front ? $cumulative_old : $cumulative_2_front;
+			my ($to_test_2_back, $cumulative_2_back) = optimize_queue([@to_test_prev], $weight_2, -1, $cutoff);
+			$cutoff = $cumulative_old < $cumulative_2_back ? $cumulative_old : $cumulative_2_back;
+			my ($to_test_3_front, $cumulative_3_front) = optimize_queue([@to_test_prev], $weight_3, 0, $cutoff);
+			$cutoff = $cumulative_old < $cumulative_3_front ? $cumulative_old : $cumulative_3_front;
+			my ($to_test_3_back, $cumulative_3_back) = optimize_queue([@to_test_prev], $weight_3, -1, $cutoff);
+			$cutoff = $cumulative_old < $cumulative_3_back ? $cumulative_old : $cumulative_3_back;
+
+			if ($cutoff == $cumulative_old) {
+				@to_test = @to_test_prev;
+			} elsif ($cutoff == $cumulative_back) {
+				@to_test = @{ $to_test_back };
+			} elsif ($cutoff == $cumulative_0_front) {
+				$weight = $weight_0;
+				@to_test = @{ $to_test_0_front };
+			} elsif ($cutoff == $cumulative_0_back) {
+				$weight = $weight_0;
+				@to_test = @{ $to_test_0_back };
+			} elsif ($cutoff == $cumulative_1_front) {
+				$weight = $weight_1;
+				@to_test = @{ $to_test_1_front };
+			} elsif ($cutoff == $cumulative_1_back) {
+				$weight = $weight_1;
+				@to_test = @{ $to_test_1_back };
+			} elsif ($cutoff == $cumulative_2_front) {
+				$weight = $weight_2;
+				@to_test = @{ $to_test_2_front };
+			} elsif ($cutoff == $cumulative_2_back) {
+				$weight = $weight_2;
+				@to_test = @{ $to_test_2_back };
+			} elsif ($cutoff == $cumulative_3_front) {
+				$weight = $weight_3;
+				@to_test = @{ $to_test_3_front };
+			} elsif ($cutoff == $cumulative_3_back) {
+				$weight = $weight_3;
+				@to_test = @{ $to_test_3_back };
+			}
+			print "  Done. Package removal avoidance factor of $weight.\n";
+			last;
 		}
 	}
-	print "  Done. Package removal avoidance factor of $weight.\n";
 }
 @rebuild_target = uniq(@rebuild_target) if @rebuild_target;
 
