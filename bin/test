@@ -342,7 +342,7 @@ sub optimize_queue {
 		push @reqs_queue, $sbo;
 	}
 	$have_requirements{$_} = 1 for @reqs_queue;
-	return [ @optimized_queue ] unless @reqs_queue;
+	return ([ @optimized_queue ], undef) unless @reqs_queue;
 
 	OPTIMIZE: while (my $sbo = shift @reqs_queue) {
 		next if exists $optimized{$sbo};
@@ -600,13 +600,17 @@ if (@to_test > 2) {
 	my $weight = 1;
 	my $cumulative = 0;
 	my $cumulative_old = 10000000000;
-	my @tied_scripts;
 	my @to_test_prev = @to_test;
 	while ($cumulative < $cumulative_old) {
 		print "  Trying a removal avoidance weight of $weight...\n";
-		my ($to_test_new, $cumulative) = optimize_queue([@to_test_prev], $weight, 0, $cumulative_old);
+		my $to_test_new;
+		($to_test_new, $cumulative) = optimize_queue([@to_test_prev], $weight, 0, $cumulative_old);
 		my @to_test_new = @{ $to_test_new };
-		if ($cumulative < $cumulative_old) {
+		unless (defined $cumulative) {
+			print "No dependencies needed; using alphabetical order.\n";
+			last;
+		}
+		elsif ($cumulative < $cumulative_old) {
 			$cumulative_old = $cumulative;
 			$cumulative = 0;
 			@to_test_prev = @to_test_new;
