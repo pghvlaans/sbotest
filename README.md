@@ -20,6 +20,7 @@ See the man page for more information about options and settings!
   * bin/test: Attempt to optimize test queues to reduce the number of package installations and removals
   * Compatibility bump for new SBO::Lib::Build queue handling
   * bin/test: Untargeted scripts in the queue also get a clean-build environment
+  * bin/test: Unlink outdated packages in the archive only once all builds succeed
 
 #### 1.1.2 - 2025-09-19
   * bin/test: Fix --single with already-installed scripts

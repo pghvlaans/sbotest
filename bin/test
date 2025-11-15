@@ -87,7 +87,7 @@ $archive_rebuild = $archive_reverse if $archive_reverse;
 
 lint_sbo_config($self, %config);
 
-my ($available, $all_fulldeps, @to_test, @rebuild_target);
+my ($available, $all_fulldeps, @to_test, @rebuild_target, @to_unlink);
 my @available = get_all_available();
 my %archive_discovered;
 
@@ -204,8 +204,8 @@ sub find_outdated {
 				push @to_remove, $ls;
 			}
 			else {
-				say "Unlinking $ls.";
-				unlink $ls;
+				say "To unlink $ls.";
+				push @to_unlink, $ls;
 			}
 		}
 	}
@@ -917,6 +917,24 @@ TESTING: while (my $ls = readdir $dh) {
 	}
 }
 
+my (@unlinked, @not_unlinked);
+if (not $no_archive and -d $archive_dir and @to_unlink and not @fail_to_build) {
+	@to_unlink = uniq @to_unlink;
+	if (chdir $archive_dir) {
+		print "\nRemoving outdated packages from the archive...\n";
+		for (@to_unlink) {
+			if (unlink $_) {
+				push @unlinked, $_;
+			} else {
+				push @not_unlinked, $_ if -f $_;
+			}
+		}
+	}
+} elsif (not $no_archive and -d $archive_dir and @to_unlink) {
+	print "\nOne or more scripts failed to build.\n\nLeaving outdated packages in the archive.\n";
+	@not_unlinked = @to_unlink;
+}
+
 unlink "$log_dir/.res" if -f "$log_dir/.res";
 chdir $cwd;
 
@@ -926,6 +944,8 @@ if (@queue_failed) {
 	@queue_failed = grep { in $_, @to_test } @queue_failed;
 	@queue_failed = uniq(sort(@queue_failed));
 }
+@unlinked = uniq(sort(@unlinked)) if @unlinked;
+@not_unlinked = uniq(sort(@not_unlinked)) if @not_unlinked;
 my @requested = uniq(sort(@ARGV)) if @ARGV;
 
 chomp(my $end_date = `/usr/bin/date`);
@@ -943,6 +963,11 @@ say ("\nMissing Solibs:\n  ", join("\n  ", @solibs)) if @solibs;
 say ("\nIncompatible perl:\n  ", join("\n  ", @bad_perl)) if @bad_perl;
 say ("\nIncompatible python:\n  ", join("\n  ", @bad_python)) if @bad_python;
 say ("\nIncompatible ruby:\n  ", join("\n  ", @bad_ruby)) if @bad_ruby;
+say ("\nRemoved from Archive:\n  ", join("\n  ", @unlinked)) if @unlinked;
+if (@not_unlinked) {
+	say ("\nOutdated in Archive:\n  ", join("\n  ", @not_unlinked));
+	say ("\nOutdated packages are not deleted if builds fail during the run.\n");
+}
 say ("\nUse \"sbotest --single\" to test scripts that are already installed.") if @already_installed;
 
 unlink $logfile if -f $logfile;
@@ -965,6 +990,11 @@ say {$fh} ("\nMissing Solibs:\n  ", join("\n  ", @solibs)) if @solibs;
 say {$fh} ("\nIncompatible perl:\n  ", join("\n  ", @bad_perl)) if @bad_perl;
 say {$fh} ("\nIncompatible python:\n  ", join("\n  ", @bad_python)) if @bad_python;
 say {$fh} ("\nIncompatible ruby:\n  ", join("\n  ", @bad_ruby)) if @bad_ruby;
+say {$fh} ("\nRemoved from Archive:\n  ", join("\n  ", @unlinked)) if @unlinked;
+if (@not_unlinked) {
+	say {$fh} ("\nOutdated in Archive:\n  ", join("\n  ", @not_unlinked));
+	say {$fh} ("\nOutdated packages are not deleted if builds fail during the run.\n");
+}
 say {$fh} ("\nUse \"sbotest --single\" to test scripts that are already installed.") if @already_installed;
 
 close $fh;
