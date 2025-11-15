@@ -536,6 +536,10 @@ if ($archive_rebuild and -d $archive_dir) {
 				next;
 			}
 			next if in $sbo, @up_to_date;
+			if (in $sbo, @$inst_sbos) {
+				push @already_installed, $sbo;
+				next;
+			}
 			push @to_test, $sbo;
 		}
 	}
@@ -578,6 +582,10 @@ if ($archive_rebuild and -d $archive_dir) {
 			push @unsupported, $sbo;
 			next;
 		}
+		if (in $sbo, @$inst_sbos) {
+			push @already_installed, $sbo;
+			next;
+		}
 		push @to_test, $sbo;
 	}
 	print "  Done.\n";
@@ -617,7 +625,7 @@ if (@to_test > 2) {
 			$weight++;
 		} else {
 			$weight--;
-			print "  Further testing for a weights around $weight...\n";
+			print "  Further testing for weights around $weight...\n";
 			my $weight_3 = $weight + 0.5;
 			my $weight_2 = $weight + 0.25;
 			my $weight_1 = $weight - 0.25;
