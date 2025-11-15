@@ -124,7 +124,9 @@ CONFIGURATION
 below for details. Any missing users and groups are added, and
 .B
 sboinstall(1)
-is called.
+is called. All packages are built in an environment that is as clean
+as possible, with only previously-installed packages and additional
+dependencies on the system.
 .P
 Newly-built packages are saved to a timestamp-appended
 .B

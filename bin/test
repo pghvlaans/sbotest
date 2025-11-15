@@ -509,9 +509,8 @@ FIRST: for my $sbo (@ARGV) {
 	}
 }
 
-if ($archive_rebuild and -d $archive_dir) {
-	print "Getting an initial test queue...\n";
-	my (@archived_names, @up_to_date);
+my (@archived_names, @up_to_date);
+if (-d $archive_dir and not $no_archive) {
 	chdir $archive_dir;
 	opendir(my $dh, $archive_dir);
 	REBUILD_CHECK: while (my $ls = readdir $dh) {
@@ -525,6 +524,10 @@ if ($archive_rebuild and -d $archive_dir) {
 	close $dh;
 	chdir $cwd;
 	@archived_names = uniq(@archived_names) if @archived_names;
+}
+
+if ($archive_rebuild and -d $archive_dir) {
+	print "Getting an initial test queue...\n";
 	@to_test = find_outdated($archive_dir);
 	if ($test_everything) {
 		for my $sbo (@available) {
@@ -602,18 +605,39 @@ unless (@to_test) {
 	exit;
 }
 @to_test = uniq(@to_test);
-if (@to_test > 2) {
+my @grand_queue;
+unless ($test_everything) {
+	for (@to_test) {
+		push @grand_queue, $_;
+		my $queue = get_build_queue([$_]);
+		for my $sbo (@$queue) {
+			next if in $sbo, @up_to_date;
+			next if in $sbo, @grand_queue;
+			next if on_blacklist($sbo);
+			next if in $sbo, @$inst_sbos;
+			my $dir = get_sbo_location($sbo);
+			next unless defined $dir and -d $dir;
+			next unless is_supported($dir);
+			push @grand_queue, $sbo;
+		}
+	}
+	@grand_queue = uniq(@grand_queue);
+} else {
+	@grand_queue = @to_test;
+}
+
+if (@grand_queue > 1) {
 	print "Reducing the number of package installations and removals...\n";
-	@to_test = sort @to_test;
+	@grand_queue = sort @grand_queue;
 	my $weight = 1;
 	my $cumulative = 0;
 	my $cumulative_old = 10000000000;
-	my @to_test_prev = @to_test;
+	my @grand_queue_prev = @grand_queue;
 	while ($cumulative < $cumulative_old) {
 		print "  Trying a removal avoidance weight of $weight...\n";
-		my $to_test_new;
-		($to_test_new, $cumulative) = optimize_queue([@to_test_prev], $weight, 0, $cumulative_old);
-		my @to_test_new = @{ $to_test_new };
+		my $grand_queue_new;
+		($grand_queue_new, $cumulative) = optimize_queue([@grand_queue_prev], $weight, 0, $cumulative_old);
+		my @grand_queue_new = @{ $grand_queue_new };
 		unless (defined $cumulative) {
 			print "No dependencies needed; using alphabetical order.\n";
 			last;
@@ -621,7 +645,7 @@ if (@to_test > 2) {
 		elsif ($cumulative < $cumulative_old) {
 			$cumulative_old = $cumulative;
 			$cumulative = 0;
-			@to_test_prev = @to_test_new;
+			@grand_queue_prev = @grand_queue_new;
 			$weight++;
 		} else {
 			$weight--;
@@ -631,53 +655,53 @@ if (@to_test > 2) {
 			my $weight_1 = $weight - 0.25;
 			my $weight_0 = $weight - 0.5;
 			my $cutoff = $cumulative_old;
-			my ($to_test_back, $cumulative_back) = optimize_queue([@to_test_prev], $weight, -1, $cutoff);
+			my ($grand_queue_back, $cumulative_back) = optimize_queue([@grand_queue_prev], $weight, -1, $cutoff);
 			$cutoff = $cumulative_old < $cumulative_back ? $cumulative_old : $cumulative_back;
-			my ($to_test_0_front, $cumulative_0_front) = optimize_queue([@to_test_prev], $weight_0, 0, $cutoff);
+			my ($grand_queue_0_front, $cumulative_0_front) = optimize_queue([@grand_queue_prev], $weight_0, 0, $cutoff);
 			$cutoff = $cumulative_old < $cumulative_0_front ? $cumulative_old : $cumulative_0_front;
-			my ($to_test_0_back, $cumulative_0_back) = optimize_queue([@to_test_prev], $weight_0, -1, $cutoff);
+			my ($grand_queue_0_back, $cumulative_0_back) = optimize_queue([@grand_queue_prev], $weight_0, -1, $cutoff);
 			$cutoff = $cumulative_old < $cumulative_0_back ? $cumulative_old : $cumulative_0_back;
-			my ($to_test_1_front, $cumulative_1_front) = optimize_queue([@to_test_prev], $weight_1, 0, $cutoff);
+			my ($grand_queue_1_front, $cumulative_1_front) = optimize_queue([@grand_queue_prev], $weight_1, 0, $cutoff);
 			$cutoff = $cumulative_old < $cumulative_1_front ? $cumulative_old : $cumulative_1_front;
-			my ($to_test_1_back, $cumulative_1_back) = optimize_queue([@to_test_prev], $weight_1, -1, $cutoff);
+			my ($grand_queue_1_back, $cumulative_1_back) = optimize_queue([@grand_queue_prev], $weight_1, -1, $cutoff);
 			$cutoff = $cumulative_old < $cumulative_1_back ? $cumulative_old : $cumulative_1_back;
-			my ($to_test_2_front, $cumulative_2_front) = optimize_queue([@to_test_prev], $weight_2, 0, $cutoff);
+			my ($grand_queue_2_front, $cumulative_2_front) = optimize_queue([@grand_queue_prev], $weight_2, 0, $cutoff);
 			$cutoff = $cumulative_old < $cumulative_2_front ? $cumulative_old : $cumulative_2_front;
-			my ($to_test_2_back, $cumulative_2_back) = optimize_queue([@to_test_prev], $weight_2, -1, $cutoff);
+			my ($grand_queue_2_back, $cumulative_2_back) = optimize_queue([@grand_queue_prev], $weight_2, -1, $cutoff);
 			$cutoff = $cumulative_old < $cumulative_2_back ? $cumulative_old : $cumulative_2_back;
-			my ($to_test_3_front, $cumulative_3_front) = optimize_queue([@to_test_prev], $weight_3, 0, $cutoff);
+			my ($grand_queue_3_front, $cumulative_3_front) = optimize_queue([@grand_queue_prev], $weight_3, 0, $cutoff);
 			$cutoff = $cumulative_old < $cumulative_3_front ? $cumulative_old : $cumulative_3_front;
-			my ($to_test_3_back, $cumulative_3_back) = optimize_queue([@to_test_prev], $weight_3, -1, $cutoff);
+			my ($grand_queue_3_back, $cumulative_3_back) = optimize_queue([@grand_queue_prev], $weight_3, -1, $cutoff);
 			$cutoff = $cumulative_old < $cumulative_3_back ? $cumulative_old : $cumulative_3_back;
 
 			if ($cutoff == $cumulative_old) {
-				@to_test = @to_test_prev;
+				@grand_queue = @grand_queue_prev;
 			} elsif ($cutoff == $cumulative_back) {
-				@to_test = @{ $to_test_back };
+				@grand_queue = @{ $grand_queue_back };
 			} elsif ($cutoff == $cumulative_0_front) {
 				$weight = $weight_0;
-				@to_test = @{ $to_test_0_front };
+				@grand_queue = @{ $grand_queue_0_front };
 			} elsif ($cutoff == $cumulative_0_back) {
 				$weight = $weight_0;
-				@to_test = @{ $to_test_0_back };
+				@grand_queue = @{ $grand_queue_0_back };
 			} elsif ($cutoff == $cumulative_1_front) {
 				$weight = $weight_1;
-				@to_test = @{ $to_test_1_front };
+				@grand_queue = @{ $grand_queue_1_front };
 			} elsif ($cutoff == $cumulative_1_back) {
 				$weight = $weight_1;
-				@to_test = @{ $to_test_1_back };
+				@grand_queue = @{ $grand_queue_1_back };
 			} elsif ($cutoff == $cumulative_2_front) {
 				$weight = $weight_2;
-				@to_test = @{ $to_test_2_front };
+				@grand_queue = @{ $grand_queue_2_front };
 			} elsif ($cutoff == $cumulative_2_back) {
 				$weight = $weight_2;
-				@to_test = @{ $to_test_2_back };
+				@grand_queue = @{ $grand_queue_2_back };
 			} elsif ($cutoff == $cumulative_3_front) {
 				$weight = $weight_3;
-				@to_test = @{ $to_test_3_front };
+				@grand_queue = @{ $grand_queue_3_front };
 			} elsif ($cutoff == $cumulative_3_back) {
 				$weight = $weight_3;
-				@to_test = @{ $to_test_3_back };
+				@grand_queue = @{ $grand_queue_3_back };
 			}
 			print "  Done. Package removal avoidance factor of $weight.\n";
 			last;
@@ -686,7 +710,7 @@ if (@to_test > 2) {
 }
 @rebuild_target = uniq(@rebuild_target) if @rebuild_target;
 
-SECOND: for my $sbo (@to_test) {
+SECOND: for my $sbo (@grand_queue) {
 	my $dir = get_sbo_location($sbo);
 	# skip if unsupported
 	unless (is_supported($dir)) {
@@ -695,8 +719,10 @@ SECOND: for my $sbo (@to_test) {
 	}
 	# skip if blacklisted
 	next SECOND if on_blacklist($sbo);
-	chdir $dir;
+	# skip if something in the queue has failed
+	next SECOND if in $sbo, @queue_failed;
 	my $queue = get_build_queue([$sbo]);
+	chdir $dir;
 	clean_packages($queue) unless $dry_run;
 	install_archived($queue, $archive_dir, $pkg_dir, @to_test) unless $no_archive or $pkg_dir eq $archive_dir;
 	if ($dry_run) {
@@ -706,7 +732,7 @@ SECOND: for my $sbo (@to_test) {
 	}
 	# nothing past this point is needed in
 	# --dry-run
-	push @dry_run_list, $sbo;
+	push @dry_run_list, $sbo if in $sbo, @to_test;
 	next SECOND if $dry_run;
 	push @bad_lint, $sbo unless system('sbolint') == 0;
 	# reinstall anything already built on this
@@ -748,14 +774,8 @@ SECOND: for my $sbo (@to_test) {
 			system($_) for @$cmds;
 		}
 	}
-	my ($res, $res0);
-	my @lesser_queue;
-	for my $dep (@$queue) { push @lesser_queue, $dep unless $dep eq $sbo; }
-	$res0 = @lesser_queue ? system('sboinstall', '-o', '-L', $log_dir, '-k', $pkg_dir, '--batch', @lesser_queue) : 0;
-	if ($res0 and @lesser_queue) {
-		$res = $res0;
-		push @queue_failed, $sbo;
-	} elsif ($single) {
+	my $res;
+	if ($single) {
 		$res = system('sboinstall', '-o', '-L', $log_dir, '-k', $pkg_dir, '-i', '-r', '-R', '--reinstall', $sbo);
 	} else {
 		$res = system('sboinstall', '-o', '-L', $log_dir, '-k', $pkg_dir, '-i', '-r', '-R', $sbo);
@@ -765,6 +785,32 @@ SECOND: for my $sbo (@to_test) {
 	exit _ERR_INST_SIGNAL if $res == _ERR_INST_SIGNAL;
 	unless ($res == 0) {
 		push @fail_to_build, $sbo unless in $sbo, @queue_failed;
+		# reverse dependencies in the queue should be
+		# skipped in case of failure
+		for my $cand (@grand_queue) {
+			next if $cand eq $sbo;
+			my $cand_queue = get_build_queue([$cand]);
+			next unless $cand_queue;
+			push @queue_failed, $cand if in $sbo, @$cand_queue;
+		}
+		my @preserve;
+		for my $requested (@to_test) {
+			next if $requested eq $sbo;
+			next if in $requested, @queue_failed;
+			my $req_queue = get_build_queue([$requested]);
+			next unless $req_queue;
+			push @preserve, @$req_queue;
+		}
+		for my $requested (@to_test) {
+			next if $requested eq $sbo;
+			next unless in $requested, @queue_failed;
+			my $req_queue = get_build_queue([$requested]);
+			next unless $req_queue;
+			for (@$req_queue) {
+				push @queue_failed, $_ unless in $_, @preserve;
+			}
+		}
+		@queue_failed = uniq @queue_failed if @queue_failed;
 		if ($config{SO_CHECK} eq "TRUE") {
 			my @post_test_installed = @{ get_installed_packages("ALL") };
 			if (@post_test_installed) {
@@ -876,7 +922,10 @@ chdir $cwd;
 
 @successful = uniq(sort(@successful)) if @successful;
 @bad_pkg_lint = uniq(sort(@bad_pkg_lint)) if @bad_pkg_lint;
-@queue_failed = uniq(sort(@queue_failed)) if @queue_failed;
+if (@queue_failed) {
+	@queue_failed = grep { in $_, @to_test } @queue_failed;
+	@queue_failed = uniq(sort(@queue_failed));
+}
 my @requested = uniq(sort(@ARGV)) if @ARGV;
 
 chomp(my $end_date = `/usr/bin/date`);
@@ -885,7 +934,7 @@ say ("\nRequested:\n  ", join("\n  ", @requested)) if @requested;
 say ("\nSuccessful:\n  ", join("\n  ", @successful)) if @successful;
 say ("\nMissing:\n  ", join("\n  ", @missing)) if @missing;
 say ("\nFailed to Build:\n  ", join("\n  ", @fail_to_build)) if @fail_to_build;
-say ("\nDependency Failed\n  ", join("\n  ", @queue_failed)) if @queue_failed;
+say ("\nDependency Failed:\n  ", join("\n  ", @queue_failed)) if @queue_failed;
 say ("\nBad sbolint:\n  ", join("\n  ", @bad_lint)) if @bad_lint;
 say ("\nBad sbopkglint:\n  ", join("\n  ", @bad_pkg_lint)) if @bad_pkg_lint;
 say ("\nUnsupported:\n  ", join("\n  ", @unsupported)) if @unsupported;
