@@ -812,34 +812,34 @@ SECOND: for my $sbo (@grand_queue) {
 		}
 		@queue_failed = uniq @queue_failed if @queue_failed;
 		if ($config{SO_CHECK} eq "TRUE") {
-			my @post_test_installed = @{ get_installed_packages("ALL") };
+			my @post_test_installed = @{ get_installed_packages("SBO") };
 			if (@post_test_installed) {
 				my $post_test_pkg = +{ map {; $_->{name}, $_->{pkg} } @post_test_installed };
 				my $pkg_count = @post_test_installed;
-				say "Checking $pkg_count installed for missing shared objects...";
+				say "Checking $pkg_count installed for solibs and compatibility...";
 				for my $installed (keys %$post_test_pkg) {
 					unless (solib_check($post_test_pkg->{$installed})) {
-						say "Shared object dependencies missing for $installed.";
+						say "  Shared object dependencies missing for $installed.";
 						push @solibs, "$sbo:" unless in "$sbo:", @solibs;
 						push @solibs, "  $installed";
 					}
 					unless ((series_check($post_test_pkg->{$installed}, "perl"))[0]) {
-						say "$installed is incompatible with system perl.";
+						say "  $installed is incompatible with system perl.";
 						push @bad_perl, "$sbo:" unless in "$sbo:", @bad_perl;
 						push @bad_perl, "  $installed";
 					}
 					unless ((series_check($post_test_pkg->{$installed}, "python"))[1]) {
-						say "$installed is incompatible with system python.";
+						say "  $installed is incompatible with system python.";
 						push @bad_python, "$sbo:" unless in "$sbo:", @bad_python;
 						push @bad_python, "  $installed";
 					}
 					unless ((series_check($post_test_pkg->{$installed}, "ruby"))[2]) {
-						say "$installed is incompatible with system ruby.";
+						say "  $installed is incompatible with system ruby.";
 						push @bad_ruby, "$sbo:" unless in "$sbo:", @bad_ruby;
 						push @bad_ruby, "  $installed";
 					}
 				}
-				print "\n";
+				say "Done.";
 			}
 		}
 	} else {
