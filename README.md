@@ -9,7 +9,7 @@ This **sbotools** companion script is written with script maintainers in mind: E
 See the man page for more information about options and settings!
 
 ## Most Recent Changes
-#### Post-Release
+#### 1.2 - 2025-11-20
   * bin/test: Use the perl, python and ruby package tests in case of failure
   * bin/test: Better protections for non-SBO packages
   * bin/test: Exit with invalid options
