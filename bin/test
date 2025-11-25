@@ -14,12 +14,13 @@ use 5.016;
 use strict;
 use warnings;
 
-use SBO::Lib qw/ :config :const auto_reverse build_cmp check_x32 check_x64 check_multilib get_readme_contents get_inst_names get_installed_packages get_sbo_build_number get_sbo_version get_user_group user_group_exist $conf_file get_sbo_location get_all_available get_build_queue get_full_reverse get_reverse_reqs in is_local lint_sbo_config on_blacklist rationalize_queue series_check slurp solib_check uniq version_cmp error_code usage_error script_error @reverse_concluded $slackbuilds_txt /;
+use SBO::Lib qw/ :config :const auto_reverse build_cmp check_x32 check_x64 check_multilib get_readme_contents get_inst_names get_installed_packages get_sbo_build_number get_sbo_version get_user_group user_group_exist $conf_file get_sbo_location get_all_available get_build_queue get_full_reverse get_reverse_reqs in is_local lint_sbo_config on_blacklist rationalize_queue series_check slurp solib_check uniq version_cmp error_code usage_error script_error @reverse_concluded $slackbuilds_txt $tmpd /;
 
 use Cwd;
 use File::Basename;
 use File::Copy;
-use File::Path qw/ make_path /;
+use File::Path qw/ make_path remove_tree /;
+use File::Temp qw/ tempdir /;
 use Getopt::Long qw/ :config no_ignore_case_always bundling /;
 
 my $self = "sbotest";
@@ -786,12 +787,20 @@ SECOND: for my $sbo (@grand_queue) {
 			system($_) for @$cmds;
 		}
 	}
+	# give the package an isolated $TMP directory to prevent previous
+	# failed builds from interfering; remove at the end
+	my $sbo_tmp = tempdir(DIR => $tmpd);
+	script_error("Failed to make a temporary directory for $sbo.") unless -d $sbo_tmp;
+	my $save_tmp = $ENV{TMP} if exists $ENV{TMP};
+	$ENV{TMP} = $sbo_tmp;
 	my $res;
 	if ($single) {
 		$res = system('sboinstall', '-o', '-L', $log_dir, '-k', $pkg_dir, '-i', '-r', '-R', '--reinstall', $sbo);
 	} else {
 		$res = system('sboinstall', '-o', '-L', $log_dir, '-k', $pkg_dir, '-i', '-r', '-R', $sbo);
 	}
+	remove_tree $sbo_tmp if -d $sbo_tmp;
+	$ENV{TMP} = defined $save_tmp ? $save_tmp : "";
 	# this won't catch everything, but at least
 	# it's something
 	exit _ERR_INST_SIGNAL if $res == _ERR_INST_SIGNAL;
