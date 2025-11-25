@@ -190,11 +190,8 @@ sbotest\fR\
 .P
 .B
 sbopkglint(1)
-is run on all test targets once
-.B
-sboinstall(1)
-has been called for the last time. A summary of results is
-displayed and saved to
+is run on all test targets as they are built successfully.
+A summary of results is displayed at the end and saved to
 .I
 SBO_HOME/results/(timestamp).log\fR\
 \&. Scripts that fail

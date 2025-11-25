@@ -9,6 +9,11 @@ This **sbotools** companion script is written with script maintainers in mind: E
 See the man page for more information about options and settings!
 
 ## Most Recent Changes
+#### Post-Release
+  * bin/test: Do not reuse log and test directories if called more than once in the same minute
+  * bin/test: Use a separate $TMP directory for each script
+  * bin/test: Run sbopkglint as packages are built, not at the end
+
 #### 1.2 - 2025-11-20
   * bin/test: Use the perl, python and ruby package tests in case of failure
   * bin/test: Better protections for non-SBO packages

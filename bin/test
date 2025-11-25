@@ -449,7 +449,7 @@ my $cwd = getcwd();
 chomp(my $begin_time = `/usr/bin/date +%Y-%m-%d-%H:%M`);
 chomp(my $start_date = `/usr/bin/date`);
 
-my (@missing, @bad_lint, @bad_pkg_lint, @fail_to_build, @successful, @unsupported, @built, @copied, @already_installed, @queue_failed, @solibs, @bad_perl, @bad_python, @bad_ruby);
+my (@missing, @bad_lint, @bad_pkg_lint, @fail_to_build, @successful, @unsupported, @built, @copied, @tested, @already_installed, @queue_failed, @solibs, @bad_perl, @bad_python, @bad_ruby);
 my $pkg_dir = $config{PKG_DIR} eq 'FALSE' ? "$config{SBO_HOME}/tests/$begin_time-tests" : "$config{PKG_DIR}/$begin_time-tests";
 my $log_dir = $config{LOG_DIR} eq 'FALSE' ? "$config{SBO_HOME}/logs/$begin_time-logs" : "$config{LOG_DIR}/$begin_time-logs";
 my $logfile = "$config{SBO_HOME}/results/$begin_time.log";
@@ -866,18 +866,32 @@ SECOND: for my $sbo (@grand_queue) {
 	} else {
 		push @built, $_ for @$queue;
 	}
-	# archive built packages; dependencies only by
-	# default, or all with --archive-force; skip if
-	# archive_dir and pkg_dir are the same
-	next if $no_archive or $pkg_dir eq $archive_dir;
 	chdir $pkg_dir;
 	opendir($dh, $pkg_dir);
 	while (my $ls = readdir $dh) {
 		next if $ls eq '.' or $ls eq '..';
 		my ($pkg_name, $pkg_version, $pkg_build) = get_package_info($ls);
 		next unless defined $pkg_name;
-		my $is_same = same_as_repo($pkg_name, $pkg_version, $pkg_build);
-		if ($is_same and ($archive_force or not in $pkg_name, @to_test)) {
+		next unless same_as_repo($pkg_name, $pkg_version, $pkg_build);
+		# sbopkglint for targets and reverse dependencies
+		# is done now
+		if (in $pkg_name, @to_test and not in $pkg_name, @tested) {
+			my $log_name = "$log_dir/sbopkglint_$pkg_name";
+			my $cmd = "( /usr/bin/sbopkglint $ls 2>&1; echo \$? > $log_dir/.res) | tee $log_name";
+			system('bash', '-c', $cmd);
+			my $sbopkglint_res = slurp "$log_dir/.res";
+			if ($sbopkglint_res == 0) {
+				push @successful, $pkg_name;
+			} else {
+				push @bad_pkg_lint, $pkg_name;
+			}
+			push @tested, $pkg_name;
+		}
+		# archive built packages; dependencies only by
+		# default, or all with --archive-force; skip if
+		# archive_dir and pkg_dir are the same
+		next if $no_archive or $pkg_dir eq $archive_dir;
+		if ($archive_force or not in $pkg_name, @to_test) {
 			unless (in $ls, @copied) {
 				say "Archiving $ls.";
 				push @copied, $ls;
@@ -916,27 +930,6 @@ if ($dry_run) {
 
 # for the last run only
 clean_packages();
-
-chdir $pkg_dir;
-opendir(my $dh, $pkg_dir);
-# run sbopkglint on the scripts in ARGV and their
-# reverse dependencies
-TESTING: while (my $ls = readdir $dh) {
-	next TESTING if $ls eq "." or $ls eq "..";
-	my ($pkg_name, $pkg_version, $pkg_build) = get_package_info($ls);
-	next TESTING unless defined $pkg_name;
-	next TESTING unless in $pkg_name, @to_test;
-	next TESTING unless same_as_repo($pkg_name, $pkg_version, $pkg_build);
-	my $log_name = "$log_dir/sbopkglint_$pkg_name";
-	my $cmd = "( /usr/bin/sbopkglint $ls 2>&1; echo \$? > $log_dir/.res) | tee $log_name";
-	system('bash', '-c', $cmd);
-	my $res = slurp "$log_dir/.res";
-	if ($res == 0) {
-		push @successful, $pkg_name;
-	} else {
-		push @bad_pkg_lint, $pkg_name;
-	}
-}
 
 my (@unlinked, @not_unlinked);
 if (not $no_archive and -d $archive_dir and @to_unlink and not @fail_to_build) {
