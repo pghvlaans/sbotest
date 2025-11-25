@@ -453,6 +453,18 @@ my $pkg_dir = $config{PKG_DIR} eq 'FALSE' ? "$config{SBO_HOME}/tests/$begin_time
 my $log_dir = $config{LOG_DIR} eq 'FALSE' ? "$config{SBO_HOME}/logs/$begin_time-logs" : "$config{LOG_DIR}/$begin_time-logs";
 my $logfile = "$config{SBO_HOME}/results/$begin_time.log";
 
+my $name_trail_index = 0;
+NEXT_NAME: while (1) {
+	if (-d $pkg_dir or -d $log_dir or -f $logfile) {
+		$pkg_dir = $pkg_dir . "_" . $name_trail_index;
+		$log_dir = $log_dir . "_" . $name_trail_index;
+		$logfile = $logfile . "_" . $name_trail_index;
+		$name_trail_index++;
+		next NEXT_NAME;
+	}
+	last;
+}
+
 if ($config{LOCAL_OVERRIDES} ne "FALSE") {
 	usage_error("$config{LOCAL_OVERRIDES} is specified as the overrides directory, but does not exist. Exiting.") unless -d $config{LOCAL_OVERRIDES};
 }
