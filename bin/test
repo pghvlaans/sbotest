@@ -450,6 +450,7 @@ chomp(my $begin_time = `/usr/bin/date +%Y-%m-%d-%H:%M`);
 chomp(my $start_date = `/usr/bin/date`);
 
 my (@missing, @bad_lint, @bad_pkg_lint, @fail_to_build, @successful, @unsupported, @built, @copied, @tested, @already_installed, @queue_failed, @solibs, @bad_perl, @bad_python, @bad_ruby);
+my (@err_usage, @err_script, @err_md5sum, @err_download, @err_noinfo, @err_circular, @err_usr_grp, @err_multilib, @basic_error);
 my $pkg_dir = $config{PKG_DIR} eq 'FALSE' ? "$config{SBO_HOME}/tests/$begin_time-tests" : "$config{PKG_DIR}/$begin_time-tests";
 my $log_dir = $config{LOG_DIR} eq 'FALSE' ? "$config{SBO_HOME}/logs/$begin_time-logs" : "$config{LOG_DIR}/$begin_time-logs";
 my $logfile = "$config{SBO_HOME}/results/$begin_time.log";
@@ -793,19 +794,35 @@ SECOND: for my $sbo (@grand_queue) {
 	script_error("Failed to make a temporary directory for $sbo.") unless -d $sbo_tmp;
 	my $save_tmp = $ENV{TMP} if exists $ENV{TMP};
 	$ENV{TMP} = $sbo_tmp;
-	my $res;
-	if ($single) {
-		$res = system('sboinstall', '-o', '-L', $log_dir, '-k', $pkg_dir, '-i', '-r', '-R', '--reinstall', $sbo);
-	} else {
-		$res = system('sboinstall', '-o', '-L', $log_dir, '-k', $pkg_dir, '-i', '-r', '-R', $sbo);
-	}
+	make_path $log_dir unless -d $log_dir;
+	my $sboinstall_res = "$log_dir/.sboinstall_res";
+	unlink $sboinstall_res if -f $sboinstall_res;
+	my $cmd = "sboinstall -oirR -L $log_dir -k $pkg_dir $sbo";
+	$cmd = $single ? $cmd . " --reinstall" : $cmd;
+	$cmd .= " ; echo \$? > $sboinstall_res";
+	system($cmd);
+	chomp(my $res = slurp $sboinstall_res);
 	remove_tree $sbo_tmp if -d $sbo_tmp;
 	$ENV{TMP} = defined $save_tmp ? $save_tmp : "";
-	# this won't catch everything, but at least
-	# it's something
-	exit _ERR_INST_SIGNAL if $res == _ERR_INST_SIGNAL;
 	unless ($res == 0) {
-		push @fail_to_build, $sbo unless in $sbo, @queue_failed;
+		unless (in $sbo, @queue_failed) {
+			push @fail_to_build, $sbo;
+			if ($res == _ERR_USAGE) {
+				push @err_usage, $sbo;
+			} elsif ($res == _ERR_SCRIPT) {
+				push @err_script, $sbo;
+			} elsif ($res == _ERR_MD5SUM) {
+				push @err_md5sum, $sbo;
+			} elsif ($res == _ERR_CIRCULAR) {
+				push @err_circular, $sbo;
+			} elsif ($res == _ERR_USR_GRP) {
+				push @err_usr_grp, $sbo;
+			} elsif ($res == _ERR_NOMULTILIB or $res == _ERR_CONVERTPKG or $res == _ERR_NOCONVERTPKG) {
+				push @err_multilib, $sbo;
+			} else {
+				push @basic_error, $sbo;
+			}
+		}
 		# reverse dependencies in the queue should be
 		# skipped in case of failure
 		for my $cand (@grand_queue) {
@@ -832,7 +849,7 @@ SECOND: for my $sbo (@grand_queue) {
 			}
 		}
 		@queue_failed = uniq @queue_failed if @queue_failed;
-		if ($config{SO_CHECK} eq "TRUE") {
+		if ($config{SO_CHECK} eq "TRUE" and in @basic_error, $sbo) {
 			my @post_test_installed = @{ get_installed_packages("SBO") };
 			if (@post_test_installed) {
 				my $post_test_pkg = +{ map {; $_->{name}, $_->{pkg} } @post_test_installed };
@@ -877,6 +894,7 @@ SECOND: for my $sbo (@grand_queue) {
 		# is done now
 		if (in $pkg_name, @to_test and not in $pkg_name, @tested) {
 			my $log_name = "$log_dir/sbopkglint_$pkg_name";
+			unlink "$log_dir/.res" if -f "$log_dir/.res";
 			my $cmd = "( /usr/bin/sbopkglint $ls 2>&1; echo \$? > $log_dir/.res) | tee $log_name";
 			system('bash', '-c', $cmd);
 			my $sbopkglint_res = slurp "$log_dir/.res";
@@ -950,6 +968,7 @@ if (not $no_archive and -d $archive_dir and @to_unlink and not @fail_to_build) {
 }
 
 unlink "$log_dir/.res" if -f "$log_dir/.res";
+unlink "$log_dir/.sboinstall_res" if -f "$log_dir/.sboinstall_res";
 chdir $cwd;
 
 @successful = uniq(sort(@successful)) if @successful;
@@ -965,21 +984,29 @@ my @requested = uniq(sort(@ARGV)) if @ARGV;
 chomp(my $end_date = `/usr/bin/date`);
 
 say ("\nRequested:\n  ", join("\n  ", @requested)) if @requested;
-say ("\nSuccessful:\n  ", join("\n  ", @successful)) if @successful;
-say ("\nMissing:\n  ", join("\n  ", @missing)) if @missing;
-say ("\nFailed to Build:\n  ", join("\n  ", @fail_to_build)) if @fail_to_build;
-say ("\nDependency Failed:\n  ", join("\n  ", @queue_failed)) if @queue_failed;
-say ("\nBad sbolint:\n  ", join("\n  ", @bad_lint)) if @bad_lint;
-say ("\nBad sbopkglint:\n  ", join("\n  ", @bad_pkg_lint)) if @bad_pkg_lint;
-say ("\nUnsupported:\n  ", join("\n  ", @unsupported)) if @unsupported;
-say ("\nAlready Installed:\n ", join("\n ", @already_installed)) if @already_installed;
-say ("\nMissing Solibs:\n  ", join("\n  ", @solibs)) if @solibs;
-say ("\nIncompatible perl:\n  ", join("\n  ", @bad_perl)) if @bad_perl;
-say ("\nIncompatible python:\n  ", join("\n  ", @bad_python)) if @bad_python;
-say ("\nIncompatible ruby:\n  ", join("\n  ", @bad_ruby)) if @bad_ruby;
-say ("\nRemoved from Archive:\n  ", join("\n  ", @unlinked)) if @unlinked;
+say ("\nSuccessful:\n  ", join("\n  ", sort @successful)) if @successful;
+say ("\nMissing:\n  ", join("\n  ", sort @missing)) if @missing;
+say ("\nBasic Build Failure:\n  ", join("\n  ", sort @basic_error)) if @basic_error;
+say ("\nDependency Failed:\n  ", join("\n  ", sort @queue_failed)) if @queue_failed;
+say ("\nsbotest Script Error:\n  ", join("\n  ", sort @err_usage)) if @err_usage;
+say ("\nsbotools Script Error:\n  ", join("\n  ", sort @err_script)) if @err_script;
+say ("\nBad md5sum:\n  ", join("\n  ", sort @err_md5sum)) if @err_md5sum;
+say ("\nFailed Download:\n  ", join("\n  ", sort @err_download)) if @err_download;
+say ("\nNo Download Info:\n  ", join("\n  ", sort @err_noinfo)) if @err_noinfo;
+say ("\nCircular Dependencies:\n  ", join("\n  ", sort @err_circular)) if @err_circular;
+say ("\nMissing User/Group:\n  ", join("\n  ", sort @err_usr_grp)) if @err_usr_grp;
+say ("\nMultilib Failure:\n  ", join("\n  ", sort @err_multilib)) if @err_multilib;
+say ("\nBad sbolint:\n  ", join("\n  ", sort @bad_lint)) if @bad_lint;
+say ("\nBad sbopkglint:\n  ", join("\n  ", sort @bad_pkg_lint)) if @bad_pkg_lint;
+say ("\nUnsupported:\n  ", join("\n  ", sort @unsupported)) if @unsupported;
+say ("\nAlready Installed:\n ", join("\n ", sort @already_installed)) if @already_installed;
+say ("\nMissing Solibs:\n  ", join("\n  ", sort @solibs)) if @solibs;
+say ("\nIncompatible perl:\n  ", join("\n  ", sort @bad_perl)) if @bad_perl;
+say ("\nIncompatible python:\n  ", join("\n  ", sort @bad_python)) if @bad_python;
+say ("\nIncompatible ruby:\n  ", join("\n  ", sort @bad_ruby)) if @bad_ruby;
+say ("\nRemoved from Archive:\n  ", join("\n  ", sort @unlinked)) if @unlinked;
 if (@not_unlinked) {
-	say ("\nOutdated in Archive:\n  ", join("\n  ", @not_unlinked));
+	say ("\nOutdated in Archive:\n  ", join("\n  ", sort @not_unlinked));
 	say ("\nOutdated packages are not deleted if builds fail during the run.\n");
 }
 say ("\nUse \"sbotest --single\" to test scripts that are already installed.") if @already_installed;
@@ -991,22 +1018,30 @@ error_code("\nNo log could be written; exiting.", _ERR_OPENFH) unless defined $f
 my $label = $archive_rebuild ? "Archive update" : "Test";
 say {$fh} "$label began: $start_date";
 say {$fh} "$label ended: $end_date";
-say {$fh} ("\nRequested:\n  ", join("\n  ", @requested)) if @requested;
-say {$fh} ("\nSuccessful:\n  ", join("\n  ", @successful)) if @successful;
-say {$fh} ("\nMissing:\n  ", join("\n  ", @missing)) if @missing;
-say {$fh} ("\nFailed to Build:\n  ", join("\n  ", @fail_to_build)) if @fail_to_build;
-say {$fh} ("\nDependency Failed:\n  ", join("\n  ", @queue_failed)) if @queue_failed;
-say {$fh} ("\nBad sbolint:\n  ", join("\n  ", @bad_lint)) if @bad_lint;
-say {$fh} ("\nBad sbopkglint:\n  ", join("\n  ", @bad_pkg_lint)) if @bad_pkg_lint;
-say {$fh} ("\nUnsupported:\n  ", join("\n  ", @unsupported)) if @unsupported;
-say {$fh} ("\nAlready Installed:\n ", join("\n ", @already_installed)) if @already_installed;
-say {$fh} ("\nMissing Solibs:\n  ", join("\n  ", @solibs)) if @solibs;
-say {$fh} ("\nIncompatible perl:\n  ", join("\n  ", @bad_perl)) if @bad_perl;
-say {$fh} ("\nIncompatible python:\n  ", join("\n  ", @bad_python)) if @bad_python;
-say {$fh} ("\nIncompatible ruby:\n  ", join("\n  ", @bad_ruby)) if @bad_ruby;
-say {$fh} ("\nRemoved from Archive:\n  ", join("\n  ", @unlinked)) if @unlinked;
+say {$fh} ("\nRequested:\n  ", join("\n  ", sort @requested)) if @requested;
+say {$fh} ("\nSuccessful:\n  ", join("\n  ", sort @successful)) if @successful;
+say {$fh} ("\nMissing:\n  ", join("\n  ", sort @missing)) if @missing;
+say {$fh} ("\nBasic Build Failure:\n  ", join("\n  ", sort @basic_error)) if @basic_error;
+say {$fh} ("\nDependency Failed:\n  ", join("\n  ", sort @queue_failed)) if @queue_failed;
+say {$fh} ("\nsbotest Script Error:\n  ", join("\n  ", sort @err_usage)) if @err_usage;
+say {$fh} ("\nsbotools Script Error:\n  ", join("\n  ", sort @err_script)) if @err_script;
+say {$fh} ("\nBad md5sum:\n  ", join("\n  ", sort @err_md5sum)) if @err_md5sum;
+say {$fh} ("\nFailed Download:\n  ", join("\n  ", sort @err_download)) if @err_download;
+say {$fh} ("\nNo Download Info:\n  ", join("\n  ", sort @err_noinfo)) if @err_noinfo;
+say {$fh} ("\nCircular Dependencies:\n  ", join("\n  ", sort @err_circular)) if @err_circular;
+say {$fh} ("\nMissing User/Group:\n  ", join("\n  ", sort @err_usr_grp)) if @err_usr_grp;
+say {$fh} ("\nMultilib Failure:\n  ", join("\n  ", sort @err_multilib)) if @err_multilib;
+say {$fh} ("\nBad sbolint:\n  ", join("\n  ", sort @bad_lint)) if @bad_lint;
+say {$fh} ("\nBad sbopkglint:\n  ", join("\n  ", sort @bad_pkg_lint)) if @bad_pkg_lint;
+say {$fh} ("\nUnsupported:\n  ", join("\n  ", sort @unsupported)) if @unsupported;
+say {$fh} ("\nAlready Installed:\n ", join("\n ", sort @already_installed)) if @already_installed;
+say {$fh} ("\nMissing Solibs:\n  ", join("\n  ", sort @solibs)) if @solibs;
+say {$fh} ("\nIncompatible perl:\n  ", join("\n  ", sort @bad_perl)) if @bad_perl;
+say {$fh} ("\nIncompatible python:\n  ", join("\n  ", sort @bad_python)) if @bad_python;
+say {$fh} ("\nIncompatible ruby:\n  ", join("\n  ", sort @bad_ruby)) if @bad_ruby;
+say {$fh} ("\nRemoved from Archive:\n  ", join("\n  ", sort @unlinked)) if @unlinked;
 if (@not_unlinked) {
-	say {$fh} ("\nOutdated in Archive:\n  ", join("\n  ", @not_unlinked));
+	say {$fh} ("\nOutdated in Archive:\n  ", join("\n  ", sort @not_unlinked));
 	say {$fh} ("\nOutdated packages are not deleted if builds fail during the run.\n");
 }
 say {$fh} ("\nUse \"sbotest --single\" to test scripts that are already installed.") if @already_installed;
