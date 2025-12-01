@@ -892,13 +892,13 @@ SECOND: for my $sbo (@grand_queue) {
 		next unless same_as_repo($pkg_name, $pkg_version, $pkg_build);
 		# sbopkglint for targets and reverse dependencies
 		# is done now
-		if (in $pkg_name, @to_test and not in $pkg_name, @tested) {
+		if (in $pkg_name, @to_test and not in $pkg_name, @tested and in $pkg_name, @built) {
 			my $log_name = "$log_dir/sbopkglint_$pkg_name";
 			unlink "$log_dir/.res" if -f "$log_dir/.res";
 			my $cmd = "( /usr/bin/sbopkglint $ls 2>&1; echo \$? > $log_dir/.res) | tee $log_name";
 			system('bash', '-c', $cmd);
 			my $sbopkglint_res = slurp "$log_dir/.res";
-			if ($sbopkglint_res == 0) {
+			if (defined $sbopkglint_res and $sbopkglint_res == 0) {
 				push @successful, $pkg_name;
 			} else {
 				push @bad_pkg_lint, $pkg_name;
