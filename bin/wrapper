@@ -43,7 +43,7 @@ for my $arg (@ARGV) {
 	push @SVARG, $arg;
 }
 
-my $string = "#% SBOTEST V1.2 COMPAT %concluded %\n";
+my $string = "#% SBOTEST V1.2.1 COMPAT %concluded %\n";
 my $fh;
 unless (open $fh, '<', $util_pm) { say "Failed to open $util_pm for reading."; exit 6; }
 my $is_compatible;
@@ -52,7 +52,7 @@ for my $line (<$fh>) {
 }
 close $fh;
 unless ($is_compatible) {
-	say "This version of sbotools is incompatible with this version of sbotest.\nUpgrade sbotools to at least 4.1.1 or 20251109-1605eca.";
+	say "This version of sbotools is incompatible with this version of sbotest.\nUpgrade sbotools to at least 20251212-e74bc3f.";
 	exit 1;
 }
 

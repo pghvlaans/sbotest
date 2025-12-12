@@ -14,6 +14,7 @@ See the man page for more information about options and settings!
   * bin/test: Use a separate $TMP directory for each script
   * bin/test: Run sbopkglint as packages are built, not at the end
   * bin/test: Report failed builds with more specific error types
+  * Compatibility bump for new SBO::Lib::Readme user and group handling
 
 #### 1.2 - 2025-11-20
   * bin/test: Use the perl, python and ruby package tests in case of failure
@@ -44,7 +45,7 @@ A SlackBuild is [available](https://slackbuilds.org/repository/15.0/system/sbote
 
 To use a development version:
 
-* Use **[sbotools-git-slackbuild](https://github.com/pghvlaans/sbotools-git-slackbuild/)** to upgrade **sbotools** to version `20251109-1605eca` at the oldest.
+* Use **[sbotools-git-slackbuild](https://github.com/pghvlaans/sbotools-git-slackbuild/)** to upgrade **sbotools** to version `20251212-e74bc3f` at the oldest.
 * Clone the **sbotest** repository.
 * Run `./tools/source_to_slackbuild.sh` from the root of the local repository.
 * Run the SlackBuild in `slackbuild/sbotest`.

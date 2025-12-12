@@ -780,11 +780,10 @@ SECOND: for my $sbo (@grand_queue) {
 	# commands
 	UGCHECK: for my $item (@$queue) {
 		my $location = get_sbo_location($item);
-		my $readme = get_readme_contents($location);
-		next UGCHECK unless defined $readme;
-		my $cmds = get_user_group($readme, $location);
+		next UGCHECK unless defined $location;
+		my $cmds = get_user_group($item, $location);
 		if ($$cmds[0] and not user_group_exist(@$cmds)) {
-			say "Adding user and group for $item...";
+			say "Adding user and/or group for $item...";
 			system($_) for @$cmds;
 		}
 	}
