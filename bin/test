@@ -14,7 +14,7 @@ use 5.016;
 use strict;
 use warnings;
 
-use SBO::Lib qw/ :config :const auto_reverse build_cmp check_x32 check_x64 check_multilib get_readme_contents get_inst_names get_installed_packages get_sbo_build_number get_sbo_version get_user_group user_group_exist $conf_file get_sbo_location get_all_available get_build_queue get_full_reverse get_reverse_reqs in is_local lint_sbo_config on_blacklist rationalize_queue series_check slurp solib_check uniq version_cmp error_code usage_error script_error @reverse_concluded $slackbuilds_txt $tmpd /;
+use SBO::Lib qw/ :config :const auto_reverse build_cmp check_x32 check_x64 check_multilib get_readme_contents get_inst_names get_installed_packages get_sbo_build_number get_sbo_version get_user_group user_group_do_not_exist $conf_file get_sbo_location get_all_available get_build_queue get_full_reverse get_reverse_reqs in is_local lint_sbo_config on_blacklist rationalize_queue series_check slurp solib_check uniq version_cmp error_code usage_error script_error @reverse_concluded $slackbuilds_txt $tmpd /;
 
 use Cwd;
 use File::Basename;
@@ -790,9 +790,15 @@ SECOND: for my $sbo (@grand_queue) {
 		} else {
 			$cmds = get_user_group($item, $location);
 		}
-		if ($$cmds[0] and not user_group_exist(@$cmds)) {
-			say "Adding user and/or group for $item...";
-			system($_) for @$cmds;
+		if ($$cmds[0]) {
+			my $nonexistent = user_group_do_not_exist(@$cmds);
+			if (@$nonexistent) {
+				say "Adding user and/or group for $item...";
+				for (@$nonexistent) {
+					print "  $_\n";
+					system($_);
+				}
+			}
 		}
 	}
 	# give the package an isolated $TMP directory to prevent previous

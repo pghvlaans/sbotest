@@ -15,6 +15,7 @@ See the man page for more information about options and settings!
   * bin/test: Run sbopkglint as packages are built, not at the end
   * bin/test: Report failed builds with more specific error types
   * Compatibility bump for new SBO::Lib::Readme user and group handling
+  * bin/test: Show useradd and groupadd commands as they are performed
 
 #### 1.2 - 2025-11-20
   * bin/test: Use the perl, python and ruby package tests in case of failure
