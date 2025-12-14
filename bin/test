@@ -781,7 +781,15 @@ SECOND: for my $sbo (@grand_queue) {
 	UGCHECK: for my $item (@$queue) {
 		my $location = get_sbo_location($item);
 		next UGCHECK unless defined $location;
-		my $cmds = get_user_group($item, $location);
+		my $non_compat_item = $item;
+		$non_compat_item =~ s/-compat32//;
+		my $cmds;
+		if (-s "/var/log/sbotools/$non_compat_item") {
+			chomp(my $saved_opts = slurp "/var/log/sbotools/$non_compat_item");
+			$cmds = get_user_group($item, $location, $saved_opts);
+		} else {
+			$cmds = get_user_group($item, $location);
+		}
 		if ($$cmds[0] and not user_group_exist(@$cmds)) {
 			say "Adding user and/or group for $item...";
 			system($_) for @$cmds;
