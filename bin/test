@@ -858,6 +858,7 @@ SECOND: for my $sbo (@grand_queue) {
 			my $req_queue = get_build_queue([$requested]);
 			next unless $req_queue;
 			for (@$req_queue) {
+				next if $_ eq $sbo;
 				push @queue_failed, $_ unless in $_, @preserve;
 			}
 		}
