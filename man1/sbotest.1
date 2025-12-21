@@ -691,14 +691,18 @@ The archive can be kept current with
 archive, provided that they are not installed or on the blacklist.
 .B
 --archive-reverse
-rebuilds all reverse dependencies as well. If
+rebuilds all reverse dependencies as well.
+.B
+--test-everything
+implies an archive reverse rebuild. If
 .B
 STRICT_UPGRADES
 is
 .B
 TRUE\fR\
 \&, only mismatched packages with lower version or build numbers are
-removed from the archive. By default, all mismatched packages are removed.
+removed from the archive. By default, all mismatched packages are removed unless
+the corresponding new version fails to build during the run.
 .P
 .SH CONFIGURATION
 The default configuration directory is

@@ -964,11 +964,16 @@ if ($dry_run) {
 clean_packages();
 
 my (@unlinked, @not_unlinked);
-if (not $no_archive and -d $archive_dir and @to_unlink and not @fail_to_build) {
+if (not $no_archive and -d $archive_dir and @to_unlink) {
 	@to_unlink = uniq @to_unlink;
 	if (chdir $archive_dir) {
 		print "\nRemoving outdated packages from the archive...\n";
 		for (@to_unlink) {
+			my ($unlink_name, $unlink_version, $unlink_build) = get_package_info($_);
+			if (in $unlink_name, @fail_to_build or in $unlink_name, @queue_failed) {
+				push @not_unlinked, $_ if -f $_;
+				next;
+			}
 			if (unlink $_) {
 				push @unlinked, $_;
 			} else {
@@ -976,9 +981,6 @@ if (not $no_archive and -d $archive_dir and @to_unlink and not @fail_to_build) {
 			}
 		}
 	}
-} elsif (not $no_archive and -d $archive_dir and @to_unlink) {
-	print "\nOne or more scripts failed to build.\n\nLeaving outdated packages in the archive.\n";
-	@not_unlinked = @to_unlink;
 }
 
 unlink "$log_dir/.res" if -f "$log_dir/.res";
@@ -1021,7 +1023,7 @@ say ("\nIncompatible ruby:\n  ", join("\n  ", @bad_ruby)) if @bad_ruby;
 say ("\nRemoved from Archive:\n  ", join("\n  ", sort @unlinked)) if @unlinked;
 if (@not_unlinked) {
 	say ("\nOutdated in Archive:\n  ", join("\n  ", sort @not_unlinked));
-	say ("\nOutdated packages are not deleted if builds fail during the run.\n");
+	say "\nOutdated scripts are not removed if the new version fails to build.\n";
 }
 say ("\nUse \"sbotest --single\" to test scripts that are already installed.") if @already_installed;
 
@@ -1056,7 +1058,7 @@ say {$fh} ("\nIncompatible ruby:\n  ", join("\n  ", @bad_ruby)) if @bad_ruby;
 say {$fh} ("\nRemoved from Archive:\n  ", join("\n  ", sort @unlinked)) if @unlinked;
 if (@not_unlinked) {
 	say {$fh} ("\nOutdated in Archive:\n  ", join("\n  ", sort @not_unlinked));
-	say {$fh} ("\nOutdated packages are not deleted if builds fail during the run.\n");
+	say {$fh} "\nOutdated scripts are not removed if the new version fails to build.\n";
 }
 say {$fh} ("\nUse \"sbotest --single\" to test scripts that are already installed.") if @already_installed;
 
