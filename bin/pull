@@ -8,7 +8,7 @@
 # author: K. Eugene Carlson <kvngncrlsn@gmail.com>
 # license: MIT License
 
-my $SBOTEST_VERSION = "1.2";
+my $SBOTEST_VERSION = "1.2.1";
 
 use 5.016;
 use strict;
