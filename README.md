@@ -9,6 +9,8 @@ This **sbotools** companion script is written with script maintainers in mind: E
 See the man page for more information about options and settings!
 
 ## Most Recent Changes
+  * Account for the new NONET setting
+
 #### 1.2.1 - 2025-12-26
   * bin/test: Do not reuse log and test directories if called more than once in the same minute
   * bin/test: Use a separate $TMP directory for each script
@@ -47,7 +49,7 @@ A SlackBuild is [available](https://slackbuilds.org/repository/15.0/system/sbote
 
 To use a development version:
 
-* Use **[sbotools-git-slackbuild](https://github.com/pghvlaans/sbotools-git-slackbuild/)** to upgrade **sbotools** to version `20251212-e74bc3f` at the oldest.
+* Use **[sbotools-git-slackbuild](https://github.com/pghvlaans/sbotools-git-slackbuild/)** to upgrade **sbotools** to version `20260426-890ffef` at the oldest.
 * Clone the **sbotest** repository.
 * Run `./tools/source_to_slackbuild.sh` from the root of the local repository.
 * Run the SlackBuild in `slackbuild/sbotest`.

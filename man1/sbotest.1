@@ -13,16 +13,16 @@ sbotest pull [-B BRANCH|FALSE] [-r URL|FALSE]
 sbotest [config|find|hints] ...
 .P
 sbotest [-f|-s] [-Akl /path|FALSE] [-j #|FALSE] \\
-        [-X TRUE|FALSE] [-D] [--no-archive|--archive-force] \\
+        [-NX TRUE|FALSE] [-D] [--no-archive|--archive-force] \\
         sbo_name (sbo_name)
 .P
-sbotest [-Al /path|FALSE] [-SX TRUE|FALSE] [-j #|FALSE] \\
+sbotest [-Al /path|FALSE] [-NSX TRUE|FALSE] [-j #|FALSE] \\
         [-D] --archive-rebuild
 .P
-sbotest [-Al /path|FALSE] [-SX TRUE|FALSE] [-j #|FALSE] \\
+sbotest [-Al /path|FALSE] [-NSX TRUE|FALSE] [-j #|FALSE] \\
         [-D] --archive-reverse
 .P
-sbotest [-Al /path|FALSE] [-SX TRUE|FALSE] [-j #|FALSE] \\
+sbotest [-Al /path|FALSE] [-NSX TRUE|FALSE] [-j #|FALSE] \\
         [--no-archive|--archive-force] --test-everything
 .SH DISCLAIMER
 .P
@@ -484,6 +484,23 @@ logs to that directory with a timestamp appended.
 .RE
 .P
 .B
+-N|--nonet
+.RS
+If
+.B
+TRUE\fR\
+\&, prevent SlackBuilds from accessing the network when they run. If
+.B
+FALSE\fR\
+\&, run SlackBuilds normally.
+.P
+Overrides the
+.B
+NONET
+setting.
+.RE
+.P
+.B
 --no-archive
 .RS
 Do not reuse any archived packages during the test run, and do
@@ -666,6 +683,25 @@ tested in the top level and run
 .B
 sbotest\fR\
 \&. Removing these directories when testing is complete is advisable.
+.P
+Set
+.B
+NONET
+to
+.B
+TRUE
+or call
+.B
+sbotest
+with
+.B
+--nonet TRUE
+to run SlackBuilds without network access. This is a convenient way
+to spot scripts that perform downloads so that the user can be warned
+in the
+.I
+README
+file.
 .P
 Reusing built packages in future test runs saves time and resources.
 The default archive directory is
