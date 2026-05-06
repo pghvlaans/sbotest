@@ -9,7 +9,10 @@ This **sbotools** companion script is written with script maintainers in mind: E
 See the man page for more information about options and settings!
 
 ## Most Recent Changes
+
+#### 1.2.2 - 2026-05-06
   * Account for the new NONET setting
+  * Compatibility bump
 
 #### 1.2.1 - 2025-12-26
   * bin/test: Do not reuse log and test directories if called more than once in the same minute
@@ -36,20 +39,13 @@ See the man page for more information about options and settings!
 #### 1.1.2 - 2025-09-19
   * bin/test: Fix --single with already-installed scripts
 
-#### 1.1.1 - 2025-08-28
-  * bin/test: Reflect changes in get_all_available() and use in()
-  * bin/test: Arrange the testing list in build order for --archive-reverse
-  * bin/test: Faster --dry-run
-  * bin/test: Cut out repetitive reverse queue calculations for archive rebuilds
-  * bin/test: Fix --single with already-installed packages
-
 ## Getting sbotest
 
 A SlackBuild is [available](https://slackbuilds.org/repository/15.0/system/sbotest/) at SlackBuilds.org.
 
 To use a development version:
 
-* Use **[sbotools-git-slackbuild](https://github.com/pghvlaans/sbotools-git-slackbuild/)** to upgrade **sbotools** to version `20260426-890ffef` at the oldest.
+* Use **[sbotools-git-slackbuild](https://github.com/pghvlaans/sbotools-git-slackbuild/)** to upgrade **sbotools** to version `20260506_de7f512` at the oldest.
 * Clone the **sbotest** repository.
 * Run `./tools/source_to_slackbuild.sh` from the root of the local repository.
 * Run the SlackBuild in `slackbuild/sbotest`.

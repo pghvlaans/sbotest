@@ -8,7 +8,7 @@
 # author: K. Eugene Carlson <kvngncrlsn@gmail.com>
 # license: MIT License
 
-my $SBOTEST_VERSION = "1.2.1";
+my $SBOTEST_VERSION = "1.2.2";
 
 use 5.016;
 use strict;
@@ -27,11 +27,7 @@ my $self = "sbotest";
 
 # $sbotest_compatible is exported from SBO::Lib::Util.pm; if
 # it is not present, the sbotools version is too old
-usage_error("The installed sbotools version is incompatible.\n\nUpgrade to 4.1.1 or 20251109-1605eca at the earliest. Exiting.") unless defined $sbotest_compatible;
-# Temporary NONET check; remove after bumping compatibility.
-unless (exists $config{NONET}) {
-	usage_error("The installed sbotools version is incompatible.\n\nUpgrade to 20260426-890ffef at the earliest. Exiting.");
-}
+usage_error("The installed sbotools version is incompatible.\n\nUpgrade to 4.1.4 or 20260506_de7f512 at the earliest. Exiting.") unless defined $sbotest_compatible;
 
 # for --dry-run
 our (@to_remove, @to_reuse, %cannot_reuse, @in_overrides, @dry_run_list);

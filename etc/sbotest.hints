@@ -27,3 +27,6 @@
 # ~libmodplug
 #
 # There may not be any whitespace in auto-reverse entries.
+
+# The hint for ignoring shared object and other test failures is not
+# applicable to sbotest.
