@@ -14,7 +14,7 @@ use 5.016;
 use strict;
 use warnings;
 
-use SBO::Lib qw/ :config :const auto_reverse build_cmp check_x32 check_x64 check_multilib get_readme_contents get_inst_names get_installed_packages get_sbo_build_number get_sbo_version get_user_group user_group_do_not_exist $conf_file get_sbo_location get_all_available get_build_queue get_full_reverse get_reverse_reqs in is_local lint_sbo_config on_blacklist rationalize_queue series_check slurp solib_check uniq version_cmp error_code usage_error script_error @reverse_concluded $slackbuilds_txt $tmpd /;
+use SBO::Lib qw/ :config :const auto_reverse build_cmp check_x32 check_x64 check_multilib get_inst_names get_installed_packages get_sbo_build_number get_sbo_version get_user_group user_group_do_not_exist $conf_file get_sbo_location get_all_available get_build_queue get_full_reverse get_reverse_reqs in is_local lint_sbo_config on_blacklist rationalize_queue series_check slurp solib_check uniq version_cmp error_code usage_error script_error @reverse_concluded $slackbuilds_txt $tmpd /;
 
 use Cwd;
 use File::Basename;
@@ -34,7 +34,7 @@ our (@to_remove, @to_reuse, %cannot_reuse, @in_overrides, @dry_run_list);
 
 my $multilib_ready = check_multilib();
 
-my ($help, $version, $pkgdir, $sbo_archive, $jobs, $nonet, $single, $full_reverse, $logdir, $archive_rebuild, $strict_upgrades, $dry_run, $no_archive, $archive_force, $archive_reverse, $so_check, $test_everything);
+my ($help, $version, $pkgdir, $sbo_archive, $jobs, $nonet, $single, $full_reverse, $logdir, $archive_rebuild, $strict_upgrades, $dry_run, $no_archive, $archive_force, $archive_reverse, $so_check, $test_everything, $manual);
 
 my $options_ok = GetOptions(
 	'help|h'              => \$help,
@@ -54,6 +54,7 @@ my $options_ok = GetOptions(
 	'test-everything'     => \$test_everything,
 	'so-check|X=s'        => \$so_check,
 	'nonet|N=s'           => \$nonet,
+	'manual-dl-dir|M=s'   => \$manual,
 );
 
 usage_error("Non-root users can only call sbotest with -h, -v, -D and listing options. Exiting.") unless $< == 0 or $dry_run or $help or $version;
@@ -67,6 +68,7 @@ $config{LOG_DIR} = defined $logdir ? $logdir : $config{LOG_DIR};
 $config{STRICT_UPGRADES} = defined $strict_upgrades ? $strict_upgrades : $config{STRICT_UPGRADES};
 $config{SO_CHECK} = defined $so_check ? $so_check : $config{SO_CHECK};
 $config{NONET} = defined $nonet ? $nonet : $config{NONET};
+$config{MANUAL_DL_DIR} = defined $manual ? $manual : $config{MANUAL_DL_DIR};
 
 if ($help) {
 	show_usage();
@@ -128,6 +130,8 @@ Options:
     set the number of jobs to use, or ignore the JOBS setting.
   --log-dir|-L [FALSE|/path]:
     save log files under this path, appending a timestamp.
+  --manual-dl-dir|-M [FALSE|/path]:
+    set to a path to prioritize source files in that directory.
   --nonet|-N [FALSE|TRUE]:
     if TRUE, block network access when running SlackBuilds.
   --pkg-dir|-k [FALSE|/path]:
@@ -814,7 +818,7 @@ SECOND: for my $sbo (@grand_queue) {
 	make_path $log_dir unless -d $log_dir;
 	my $sboinstall_res = "$log_dir/.sboinstall_res";
 	unlink $sboinstall_res if -f $sboinstall_res;
-	my $cmd = "sboinstall -oirR -L $log_dir -k $pkg_dir -N $config{NONET} $sbo";
+	my $cmd = "sboinstall -oirR -L $log_dir -k $pkg_dir -N $config{NONET} -M $config{MANUAL_DL_DIR} $sbo";
 	$cmd = $single ? $cmd . " --reinstall" : $cmd;
 	$cmd .= " ; echo \$? > $sboinstall_res";
 	system($cmd);

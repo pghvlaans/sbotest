@@ -10,6 +10,10 @@ See the man page for more information about options and settings!
 
 ## Most Recent Changes
 
+#### Post-Release
+  * Account for the new MANUAL_DL_DIR setting
+  * Compatibility bump
+
 #### 1.2.2 - 2026-05-06
   * Account for the new NONET setting
   * Compatibility bump
@@ -36,16 +40,13 @@ See the man page for more information about options and settings!
   * bin/test: Untargeted scripts in the queue also get a clean-build environment
   * bin/test: Unlink outdated packages in the archive only once all builds succeed
 
-#### 1.1.2 - 2025-09-19
-  * bin/test: Fix --single with already-installed scripts
-
 ## Getting sbotest
 
 A SlackBuild is [available](https://slackbuilds.org/repository/15.0/system/sbotest/) at SlackBuilds.org.
 
 To use a development version:
 
-* Use **[sbotools-git-slackbuild](https://github.com/pghvlaans/sbotools-git-slackbuild/)** to upgrade **sbotools** to version `20260506_de7f512` at the oldest.
+* Use **[sbotools-git-slackbuild](https://github.com/pghvlaans/sbotools-git-slackbuild/)** to upgrade **sbotools** to version `20260530_84e763d` at the oldest.
 * Clone the **sbotest** repository.
 * Run `./tools/source_to_slackbuild.sh` from the root of the local repository.
 * Run the SlackBuild in `slackbuild/sbotest`.
