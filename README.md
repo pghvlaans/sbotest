@@ -11,8 +11,8 @@ See the man page for more information about options and settings!
 ## Most Recent Changes
 
 #### Post-Release
-  * Account for the new MANUAL_DL_DIR setting
   * Compatibility bump
+  * Document the manual download directory and symlink
 
 #### 1.2.2 - 2026-05-06
   * Account for the new NONET setting

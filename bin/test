@@ -34,7 +34,7 @@ our (@to_remove, @to_reuse, %cannot_reuse, @in_overrides, @dry_run_list);
 
 my $multilib_ready = check_multilib();
 
-my ($help, $version, $pkgdir, $sbo_archive, $jobs, $nonet, $single, $full_reverse, $logdir, $archive_rebuild, $strict_upgrades, $dry_run, $no_archive, $archive_force, $archive_reverse, $so_check, $test_everything, $manual);
+my ($help, $version, $pkgdir, $sbo_archive, $jobs, $nonet, $single, $full_reverse, $logdir, $archive_rebuild, $strict_upgrades, $dry_run, $no_archive, $archive_force, $archive_reverse, $so_check, $test_everything);
 
 my $options_ok = GetOptions(
 	'help|h'              => \$help,
@@ -54,7 +54,6 @@ my $options_ok = GetOptions(
 	'test-everything'     => \$test_everything,
 	'so-check|X=s'        => \$so_check,
 	'nonet|N=s'           => \$nonet,
-	'manual-dl-dir|M=s'   => \$manual,
 );
 
 usage_error("Non-root users can only call sbotest with -h, -v, -D and listing options. Exiting.") unless $< == 0 or $dry_run or $help or $version;
@@ -68,7 +67,6 @@ $config{LOG_DIR} = defined $logdir ? $logdir : $config{LOG_DIR};
 $config{STRICT_UPGRADES} = defined $strict_upgrades ? $strict_upgrades : $config{STRICT_UPGRADES};
 $config{SO_CHECK} = defined $so_check ? $so_check : $config{SO_CHECK};
 $config{NONET} = defined $nonet ? $nonet : $config{NONET};
-$config{MANUAL_DL_DIR} = defined $manual ? $manual : $config{MANUAL_DL_DIR};
 
 if ($help) {
 	show_usage();
@@ -130,8 +128,6 @@ Options:
     set the number of jobs to use, or ignore the JOBS setting.
   --log-dir|-L [FALSE|/path]:
     save log files under this path, appending a timestamp.
-  --manual-dl-dir|-M [FALSE|/path]:
-    set to a path to prioritize source files in that directory.
   --nonet|-N [FALSE|TRUE]:
     if TRUE, block network access when running SlackBuilds.
   --pkg-dir|-k [FALSE|/path]:
@@ -818,7 +814,7 @@ SECOND: for my $sbo (@grand_queue) {
 	make_path $log_dir unless -d $log_dir;
 	my $sboinstall_res = "$log_dir/.sboinstall_res";
 	unlink $sboinstall_res if -f $sboinstall_res;
-	my $cmd = "sboinstall -oirR -L $log_dir -k $pkg_dir -N $config{NONET} -M $config{MANUAL_DL_DIR} $sbo";
+	my $cmd = "sboinstall -oirR -L $log_dir -k $pkg_dir -N $config{NONET} $sbo";
 	$cmd = $single ? $cmd . " --reinstall" : $cmd;
 	$cmd .= " ; echo \$? > $sboinstall_res";
 	system($cmd);
