@@ -117,7 +117,7 @@ to the
 SBO_ARCHIVE
 directory (default
 .I
-/usr/sbotest/archive\fR\
+/var/lib/sbotest/archive\fR\
 \&) are installed to save time; see
 .B
 CONFIGURATION
@@ -296,7 +296,7 @@ have no effect.
 .RS
 Replace build- and version-mismatched packages in the archive,
 .I
-/usr/sbotest/archive
+/var/lib/sbotest/archive
 by default. Please note that installed and blacklisted packages are ignored.
 If
 .B
@@ -365,7 +365,7 @@ When testing the requested scripts, copy all built packages into
 SBO_ARCHIVE\fR\
 \&,
 .I
-/usr/sbotest/archive
+/var/lib/sbotest/archive
 by default. This includes even requested scripts and their reverse
 dependencies.
 .P
@@ -457,7 +457,7 @@ FALSE\fR\
 SBO_HOME/tests/(timestamp)-tests\fR\
 \&, e.g.
 .I
-/usr/sbotest/tests/2025-08-28-20:59-tests\fR\
+/var/lib/sbotest/tests/2025-08-28-20:59-tests\fR\
 \&. If an
 .B
 absolute path\fR\
@@ -718,7 +718,7 @@ file.
 Reusing built packages in future test runs saves time and resources.
 The default archive directory is
 .I
-/usr/sbotest/archive\fR\
+/var/lib/sbotest/archive\fR\
 \&; packages stored here are reinstalled in lieu of building
 when needed, provided they are up-to-date. During an
 .B
@@ -821,7 +821,7 @@ SBO_HOME
 .RS
 The default value is
 .I
-/usr/sbotest\fR\
+/var/lib/sbotest\fR\
 \&.
 .RE
 .P
@@ -837,7 +837,7 @@ absolute path
 is specified, packages built during the test run are saved
 to a timestamp-designated directory under that path, e.g.
 .I
-/usr/sbotest/tests/2025-08-28-20:59-tests\fR\
+/var/lib/sbotest/tests/2025-08-28-20:59-tests\fR\
 \&.
 .RE
 .P
