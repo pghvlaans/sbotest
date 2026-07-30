@@ -34,7 +34,7 @@ our (@to_remove, @to_reuse, %cannot_reuse, @in_overrides, @dry_run_list);
 
 my $multilib_ready = check_multilib();
 
-my ($help, $version, $pkgdir, $sbo_archive, $jobs, $nonet, $single, $full_reverse, $logdir, $archive_rebuild, $strict_upgrades, $dry_run, $no_archive, $archive_force, $archive_reverse, $so_check, $test_everything);
+my ($help, $version, $pkgdir, $sbo_archive, $jobs, $nonet, $single, $full_reverse, $logdir, $archive_rebuild, $strict_upgrades, $dry_run, $no_archive, $archive_force, $archive_reverse, $no_socheck, $test_everything);
 
 my $options_ok = GetOptions(
 	'help|h'              => \$help,
@@ -52,7 +52,7 @@ my $options_ok = GetOptions(
 	'no-archive'          => \$no_archive,
 	'archive-force'       => \$archive_force,
 	'test-everything'     => \$test_everything,
-	'so-check|X=s'        => \$so_check,
+	'no-socheck|X=s'      => \$no_socheck,
 	'nonet|N=s'           => \$nonet,
 );
 
@@ -65,7 +65,7 @@ $config{JOBS} = defined $jobs ? $jobs : $config{JOBS};
 $config{PKG_DIR} = defined $pkgdir ? $pkgdir : $config{PKG_DIR};
 $config{LOG_DIR} = defined $logdir ? $logdir : $config{LOG_DIR};
 $config{STRICT_UPGRADES} = defined $strict_upgrades ? $strict_upgrades : $config{STRICT_UPGRADES};
-$config{SO_CHECK} = defined $so_check ? $so_check : $config{SO_CHECK};
+$config{NO_SOCHECK} = defined $no_socheck ? $no_socheck : $config{NO_SOCHECK};
 $config{NONET} = defined $nonet ? $nonet : $config{NONET};
 
 if ($help) {
@@ -136,8 +136,8 @@ Options:
     with --archive-rebuild, delete only out-of-date packages.
   --sbo-archive|-A [FALSE|/path]:
     reinstall saved packages from this path.
-  --so-check|-X [FALSE|TRUE]:
-    conduct missing shared object checks upon test failure if TRUE.
+  --no-socheck|-X [FALSE|TRUE]:
+    do not conduct missing shared object checks upon test failure if TRUE.
   --single|-s:
     do not test reverse dependencies.
   --archive-rebuild:
@@ -867,7 +867,7 @@ SECOND: for my $sbo (@grand_queue) {
 			}
 		}
 		@queue_failed = uniq @queue_failed if @queue_failed;
-		if ($config{SO_CHECK} eq "TRUE" and in @basic_error, $sbo) {
+		if ($config{NO_SOCHECK} ne "TRUE" and in @basic_error, $sbo) {
 			my @post_test_installed = @{ get_installed_packages("SBO") };
 			if (@post_test_installed) {
 				my $post_test_pkg = +{ map {; $_->{name}, $_->{pkg} } @post_test_installed };

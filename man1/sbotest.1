@@ -161,11 +161,10 @@ in the archive. Reverse rebuilds are performed when rebuilding
 archived packages.
 .P
 Packages in the archive with missed rebuilds may lack required shared
-object dependencies, which can in turn cause builds to fail. To check
-all installed
+object dependencies, which can in turn cause builds to fail. All installed
 .I
 _SBo
-packages for missing dependencies and incompatibility with system
+packages are checked for missing dependencies and incompatibility with system
 .B
 perl\fR\
 \&,
@@ -174,15 +173,15 @@ python
 and
 .B
 ruby
-upon build test failure, set
+upon build test failure by default. To skip these checks, set
 .B
-SO_CHECK
+NO_SOCHECK
 to
 .B
 TRUE
 or pass
 .B
---so-check TRUE
+--no-socheck TRUE
 to
 .B
 sbotest\fR\
@@ -580,12 +579,12 @@ and
 .RE
 .P
 .B
--X|--so-check
+-X|--no-socheck
 .RS
 If
 .B
 TRUE\fR\
-\&, perform tests for missing shared object dependencies and
+\&, do not perform the default tests for missing shared object dependencies and
 .B
 perl\fR\
 \&,
@@ -597,7 +596,10 @@ ruby
 incompatibility on all installed
 .I
 _SBo
-packages upon build test failure. Overrides the setting in
+packages upon build test failure. Overrides the
+.B
+NO_SOCHECK
+setting in
 .I
 /etc/sbotest/sbotest.conf\fR\
 \&.
