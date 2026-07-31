@@ -10,7 +10,7 @@ See the man page for more information about options and settings!
 
 ## Most Recent Changes
 
-#### Post-Release
+#### 1.2.3 - 2026-07-31
   * Compatibility bump
   * Document the manual download directory and symlink
   * Document the new SBO_HOME default of /var/lib/sbotest, etc.

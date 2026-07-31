@@ -1,8 +1,8 @@
 ## ChangeLog.md
 
-#### Post-Release
-  * Account for the new MANUAL_DL_DIR setting
+#### 1.2.3 - 2026-07-31
   * Compatibility bump
+  * Document the manual download directory and symlink
   * Document the new SBO_HOME default of /var/lib/sbotest, etc.
   * Account for the NO_SOCHECK setting; replace --so-check with --no-socheck
 
