@@ -3,10 +3,10 @@
 # Make sbotest-*.tar.gz and put it in the slackbuild/sbotest
 # directory to build a packge.
 
-SBOROOT=$(pwd)
-PWB=$(basename $SBOROOT)
+SBOROOT="$(pwd)"
+PWB="$(basename "$SBOROOT")"
 
-if [ ! -d "./man1" -o $PWB != "sbotest" ]; then
+if [ ! -d "./man1" ] || [ "$PWB" != "sbotest" ]; then
   echo "Run version.sh from the root sbotest directory."
   exit 1
 fi
@@ -14,20 +14,25 @@ fi
 VER=$(awk -F\" '/^my \$SBOTEST_VERSION/{print $2}' bin/test)
 TEMPDIR=$(mktemp -d)
 
-if [ ! -d $TEMPDIR ]; then
+if [ ! -d "$TEMPDIR" ]; then
   echo "Making the temporary directory failed. Exiting."
   exit 1
 fi
 
 (
-  cd $TEMPDIR
-  cp -r $SBOROOT sbotest-$VER
-  rm -rf sbotest-$VER/.git
-  tar cavf sbotest-$VER.tar.gz sbotest-$VER/
+  cd "$TEMPDIR" || exit 1
+  cp -r "$SBOROOT" "sbotest-$VER"
+  if [ ! -d "sbotest-$VER" ]; then
+    echo "Copying the sbotest directory failed. Exiting."
+    exit 1
+  fi
+  rm -rf "sbotest-$VER/.git"
+  rm -f sbotest-"$VER"/slackbuild/sbotest/*.tar.gz
+  tar cavf "sbotest-$VER.tar.gz" "sbotest-$VER/"
 )
 
-cp $TEMPDIR/sbotest-$VER.tar.gz slackbuild/sbotest
-rm -r $TEMPDIR
+cp "$TEMPDIR/sbotest-$VER.tar.gz" slackbuild/sbotest
+rm -r "$TEMPDIR"
 
 echo ""
 echo "Created sbotest-$VER.tar.gz and moved it to slackbuild/sbotest."
