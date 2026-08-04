@@ -85,7 +85,7 @@ usage_error("full-reverse is incompatible with test-everything. Exiting.") if $s
 usage_error("archive-rebuild, no-archive and archive-force are incompatible. Exiting.") if ($archive_rebuild and ($no_archive or $archive_force)) or ($no_archive and $archive_force);
 usage_error("archive-force is incompatible with test-everyhting. Exiting.") if $archive_force and $test_everything;
 
-chomp(my $incoming_nice = `nice`);
+chomp(my $incoming_nice = `/bin/nice`);
 
 if ($test_everything) {
 	$archive_reverse = $test_everything unless $no_archive;
@@ -179,11 +179,11 @@ sub clean_packages {
 	for my $sbo (@$current_sbos) {
 		next if in $sbo, @$inst_sbos;
 		if (defined $queue) { next if in $sbo, @$queue; }
-		chomp(my $check_nice = `nice`);
+		chomp(my $check_nice = `/bin/nice`);
 		$config{NICENESS} = $check_nice == $incoming_nice ? $config{NICENESS} : "FALSE";
 		if ($config{NICENESS} ne "FALSE") {
 			my $nice_diff = $config{NICENESS} - $check_nice;
-			script_error("removepkg failed.") unless system('nice', '-n', $nice_diff, '/sbin/removepkg', '--terse', $sbo) == 0;
+			script_error("removepkg failed.") unless system('/bin/nice', '-n', $nice_diff, '/sbin/removepkg', '--terse', $sbo) == 0;
 		} else {
 			script_error("removepkg failed.") unless system('/sbin/removepkg', '--terse', $sbo) == 0;
 		}
@@ -316,11 +316,11 @@ sub install_archived {
 		if ($dry_run) {
 			push @to_reuse, $ls;
 		} else {
-			chomp(my $check_nice = `nice`);
+			chomp(my $check_nice = `/bin/nice`);
 			$config{NICENESS} = $check_nice == $incoming_nice ? $config{NICENESS} : "FALSE";
 			if ($config{NICENESS} ne "FALSE") {
 				my $nice_diff = $config{NICENESS} - $check_nice;
-				script_error("upgradepkg failed.") unless system('nice', '-n', $nice_diff, '/sbin/upgradepkg', '--reinstall', '--install-new', '--terse', $ls) == 0;
+				script_error("upgradepkg failed.") unless system('/bin/nice', '-n', $nice_diff, '/sbin/upgradepkg', '--reinstall', '--install-new', '--terse', $ls) == 0;
 			} else {
 				script_error("upgradepkg failed.") unless system('/sbin/upgradepkg', '--reinstall', '--install-new', '--terse', $ls) == 0;
 			}
@@ -795,11 +795,11 @@ SECOND: for my $sbo (@grand_queue) {
 			# validity of package file name already done
 			my ($script_name, $script_version, $script_build) = get_package_info($script);
 			next REINSTALL if in $script_name, @$currently_installed or (in $script_name, @rebuild_target and not in $script_name, @built);
-			chomp(my $check_nice = `nice`);
+			chomp(my $check_nice = `/bin/nice`);
 			$config{NICENESS} = $check_nice == $incoming_nice ? $config{NICENESS} : "FALSE";
 			if ($config{NICENESS} ne "FALSE") {
 				my $nice_diff = $config{NICENESS} - $check_nice;
-				script_error("upgradepkg failed.") unless system('nice', '-n', $nice_diff, '/sbin/upgradepkg', '--reinstall', '--install-new', '--terse', $script) == 0;
+				script_error("upgradepkg failed.") unless system('/bin/nice', '-n', $nice_diff, '/sbin/upgradepkg', '--reinstall', '--install-new', '--terse', $script) == 0;
 			} else {
 				script_error("upgradepkg failed.") unless system('/sbin/upgradepkg', '--reinstall', '--install-new', '--terse', $script) == 0;
 			}
@@ -839,7 +839,7 @@ SECOND: for my $sbo (@grand_queue) {
 	make_path $log_dir unless -d $log_dir;
 	my $sboinstall_res = "$log_dir/.sboinstall_res";
 	unlink $sboinstall_res if -f $sboinstall_res;
-	chomp(my $check_nice = `nice`);
+	chomp(my $check_nice = `/bin/nice`);
 	$config{NICENESS} = $check_nice == $incoming_nice ? $config{NICENESS} : "FALSE";
 	my $cmd = "sboinstall -oirR -L $log_dir -k $pkg_dir -N $config{NONET} $sbo -Z $config{NICENESS}";
 	$cmd = $single ? $cmd . " --reinstall" : $cmd;
