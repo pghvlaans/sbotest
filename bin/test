@@ -34,7 +34,7 @@ our (@to_remove, @to_reuse, %cannot_reuse, @in_overrides, @dry_run_list);
 
 my $multilib_ready = check_multilib();
 
-my ($help, $version, $pkgdir, $sbo_archive, $jobs, $nonet, $single, $full_reverse, $logdir, $archive_rebuild, $strict_upgrades, $dry_run, $no_archive, $archive_force, $archive_reverse, $no_socheck, $test_everything);
+my ($help, $version, $pkgdir, $sbo_archive, $jobs, $nonet, $single, $full_reverse, $logdir, $archive_rebuild, $strict_upgrades, $dry_run, $no_archive, $archive_force, $archive_reverse, $no_socheck, $test_everything, $niceness);
 
 my $options_ok = GetOptions(
 	'help|h'              => \$help,
@@ -54,6 +54,7 @@ my $options_ok = GetOptions(
 	'test-everything'     => \$test_everything,
 	'no-socheck|X=s'      => \$no_socheck,
 	'nonet|N=s'           => \$nonet,
+	'niceness|Z=s'        => \$niceness,
 );
 
 usage_error("Non-root users can only call sbotest with -h, -v, -D and listing options. Exiting.") unless $< == 0 or $dry_run or $help or $version;
@@ -67,6 +68,7 @@ $config{LOG_DIR} = defined $logdir ? $logdir : $config{LOG_DIR};
 $config{STRICT_UPGRADES} = defined $strict_upgrades ? $strict_upgrades : $config{STRICT_UPGRADES};
 $config{NO_SOCHECK} = defined $no_socheck ? $no_socheck : $config{NO_SOCHECK};
 $config{NONET} = defined $nonet ? $nonet : $config{NONET};
+$config{NICENESS} = defined $niceness ? $niceness : $config{NICENESS};
 
 if ($help) {
 	show_usage();
@@ -82,6 +84,8 @@ usage_error("full-reverse is incompatible with single. Exiting.") if $single and
 usage_error("full-reverse is incompatible with test-everything. Exiting.") if $single and $test_everything;
 usage_error("archive-rebuild, no-archive and archive-force are incompatible. Exiting.") if ($archive_rebuild and ($no_archive or $archive_force)) or ($no_archive and $archive_force);
 usage_error("archive-force is incompatible with test-everyhting. Exiting.") if $archive_force and $test_everything;
+
+chomp(my $incoming_nice = `nice`);
 
 if ($test_everything) {
 	$archive_reverse = $test_everything unless $no_archive;
@@ -175,7 +179,14 @@ sub clean_packages {
 	for my $sbo (@$current_sbos) {
 		next if in $sbo, @$inst_sbos;
 		if (defined $queue) { next if in $sbo, @$queue; }
-		script_error("removepkg failed.") unless system('/sbin/removepkg', '--terse', $sbo) == 0;
+		chomp(my $check_nice = `nice`);
+		$config{NICENESS} = $check_nice == $incoming_nice ? $config{NICENESS} : "FALSE";
+		if ($config{NICENESS} ne "FALSE") {
+			my $nice_diff = $config{NICENESS} - $check_nice;
+			script_error("removepkg failed.") unless system('nice', '-n', $nice_diff, '/sbin/removepkg', '--terse', $sbo) == 0;
+		} else {
+			script_error("removepkg failed.") unless system('/sbin/removepkg', '--terse', $sbo) == 0;
+		}
 	}
 }
 
@@ -305,7 +316,14 @@ sub install_archived {
 		if ($dry_run) {
 			push @to_reuse, $ls;
 		} else {
-			script_error("upgradepkg failed.") unless system('/sbin/upgradepkg', '--reinstall', '--install-new', '--terse', $ls) == 0;
+			chomp(my $check_nice = `nice`);
+			$config{NICENESS} = $check_nice == $incoming_nice ? $config{NICENESS} : "FALSE";
+			if ($config{NICENESS} ne "FALSE") {
+				my $nice_diff = $config{NICENESS} - $check_nice;
+				script_error("upgradepkg failed.") unless system('nice', '-n', $nice_diff, '/sbin/upgradepkg', '--reinstall', '--install-new', '--terse', $ls) == 0;
+			} else {
+				script_error("upgradepkg failed.") unless system('/sbin/upgradepkg', '--reinstall', '--install-new', '--terse', $ls) == 0;
+			}
 		}
 	}
 	close $dh;
@@ -777,7 +795,14 @@ SECOND: for my $sbo (@grand_queue) {
 			# validity of package file name already done
 			my ($script_name, $script_version, $script_build) = get_package_info($script);
 			next REINSTALL if in $script_name, @$currently_installed or (in $script_name, @rebuild_target and not in $script_name, @built);
-			script_error("upgradepkg failed.") unless system('/sbin/upgradepkg', '--reinstall', '--install-new', '--terse', $script) == 0;
+			chomp(my $check_nice = `nice`);
+			$config{NICENESS} = $check_nice == $incoming_nice ? $config{NICENESS} : "FALSE";
+			if ($config{NICENESS} ne "FALSE") {
+				my $nice_diff = $config{NICENESS} - $check_nice;
+				script_error("upgradepkg failed.") unless system('nice', '-n', $nice_diff, '/sbin/upgradepkg', '--reinstall', '--install-new', '--terse', $script) == 0;
+			} else {
+				script_error("upgradepkg failed.") unless system('/sbin/upgradepkg', '--reinstall', '--install-new', '--terse', $script) == 0;
+			}
 		}
 	}
 	# run any required useradd and groupadd
@@ -814,7 +839,9 @@ SECOND: for my $sbo (@grand_queue) {
 	make_path $log_dir unless -d $log_dir;
 	my $sboinstall_res = "$log_dir/.sboinstall_res";
 	unlink $sboinstall_res if -f $sboinstall_res;
-	my $cmd = "sboinstall -oirR -L $log_dir -k $pkg_dir -N $config{NONET} $sbo";
+	chomp(my $check_nice = `nice`);
+	$config{NICENESS} = $check_nice == $incoming_nice ? $config{NICENESS} : "FALSE";
+	my $cmd = "sboinstall -oirR -L $log_dir -k $pkg_dir -N $config{NONET} $sbo -Z $config{NICENESS}";
 	$cmd = $single ? $cmd . " --reinstall" : $cmd;
 	$cmd .= " ; echo \$? > $sboinstall_res";
 	system($cmd);

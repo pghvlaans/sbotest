@@ -12,17 +12,17 @@ sbotest pull [-B BRANCH|FALSE] [-r URL|FALSE]
 .P
 sbotest [config|find|hints] ...
 .P
-sbotest [-f|-s] [-Akl /path|FALSE] [-j #|FALSE] \\
+sbotest [-f|-s] [-Akl /path|FALSE] [-Zj #|FALSE] \\
         [-NX TRUE|FALSE] [-D] [--no-archive|--archive-force] \\
         sbo_name (sbo_name)
 .P
-sbotest [-Al /path|FALSE] [-NSX TRUE|FALSE] [-j #|FALSE] \\
+sbotest [-Al /path|FALSE] [-NSX TRUE|FALSE] [-Zj #|FALSE] \\
         [-D] --archive-rebuild
 .P
-sbotest [-Al /path|FALSE] [-NSX TRUE|FALSE] [-j #|FALSE] \\
+sbotest [-Al /path|FALSE] [-NSX TRUE|FALSE] [-Zj #|FALSE] \\
         [-D] --archive-reverse
 .P
-sbotest [-Al /path|FALSE] [-NSX TRUE|FALSE] [-j #|FALSE] \\
+sbotest [-Al /path|FALSE] [-NSX TRUE|FALSE] [-Zj #|FALSE] \\
         [--no-archive|--archive-force] --test-everything
 .SH DISCLAIMER
 .P
@@ -554,6 +554,30 @@ the setting in
 .I
 /etc/sbotest/sbotest.conf\fR\
 \&.
+.RE
+.P
+.B
+-Z|--niceness (FALSE|-20..19)
+.RS
+If set to a
+.B
+number
+from -20 through 19, use that as the absolute niceness value for
+.B
+sbotest
+during the building and installation phase. If
+.B
+FALSE\fR\
+\&, simply use the niceness value that the script started with, generally
+.I
+0
+without user intervention. A lower niceness value gives a process greater
+priority. Use with caution.
+.P
+Overrides the
+.B
+NICENESS
+setting.
 .RE
 .P
 .B
