@@ -14,7 +14,7 @@ use 5.016;
 use strict;
 use warnings;
 
-use SBO::Lib qw/ :config :const auto_reverse build_cmp check_x32 check_x64 check_multilib get_inst_names get_installed_packages get_sbo_build_number get_sbo_version get_user_group user_group_do_not_exist $conf_file get_sbo_location get_all_available get_build_queue get_full_reverse get_reverse_reqs in is_local lint_sbo_config on_blacklist rationalize_queue series_check slurp solib_check uniq version_cmp error_code usage_error script_error @reverse_concluded $slackbuilds_txt $tmpd /;
+use SBO::Lib qw/ :config :const auto_reverse build_cmp check_x32 check_x64 check_multilib get_inst_names get_installed_packages get_sbo_build_number get_sbo_version get_user_group user_group_do_not_exist $conf_file get_sbo_location get_sbo_version get_sbo_build_number get_all_available get_build_queue get_full_reverse get_reverse_reqs in is_local lint_sbo_config on_blacklist rationalize_queue series_check slurp solib_check uniq version_cmp error_code usage_error script_error @reverse_concluded $slackbuilds_txt $tmpd /;
 
 use Cwd;
 use File::Basename;
@@ -473,6 +473,7 @@ chomp(my $start_date = `/usr/bin/date`);
 
 my (@missing, @bad_lint, @bad_pkg_lint, @fail_to_build, @successful, @unsupported, @built, @copied, @tested, @already_installed, @queue_failed, @solibs, @bad_perl, @bad_python, @bad_ruby);
 my (@err_usage, @err_script, @err_md5sum, @err_download, @err_noinfo, @err_circular, @err_usr_grp, @err_multilib, @basic_error);
+my (%versions, %build_numbers);
 my $pkg_dir = $config{PKG_DIR} eq 'FALSE' ? "$config{SBO_HOME}/tests/$begin_time-tests" : "$config{PKG_DIR}/$begin_time-tests";
 my $log_dir = $config{LOG_DIR} eq 'FALSE' ? "$config{SBO_HOME}/logs/$begin_time-logs" : "$config{LOG_DIR}/$begin_time-logs";
 my $logfile = "$config{SBO_HOME}/results/$begin_time.log";
@@ -660,6 +661,13 @@ unless ($test_everything) {
 	@grand_queue = uniq(@grand_queue);
 } else {
 	@grand_queue = @to_test;
+}
+
+for my $sbo (@grand_queue) {
+	my $dir = get_sbo_location($sbo);
+	next unless defined $dir and -d $dir;
+	$versions{$sbo} = get_sbo_version($dir);
+	$build_numbers{$sbo} = get_sbo_build_number($dir);
 }
 
 if (@grand_queue > 1) {
@@ -985,7 +993,12 @@ if ($dry_run) {
 		my $reuse_number = @to_reuse;
 		say "\nTo reuse $reuse_number from $archive_dir.";
 	}
-	say ("\nTest queue:\n  ", join("\n  ", @dry_run_list)) if @dry_run_list;
+	my @display_dry_run;
+	for (@dry_run_list) {
+		my $disp = "$_ $versions{$_} ($build_numbers{$_})";
+		push @display_dry_run, $disp;
+	}
+	say ("\nTest queue:\n  ", join("\n  ", @display_dry_run)) if @display_dry_run;
 	say ("\nTo remove from archive:\n  ", join("\n  ", @to_remove)) if @to_remove;
 	say ("\nUse \"sbotest --single\" to test scripts that are already installed.") if @already_installed;
 	exit;
@@ -1027,6 +1040,10 @@ if (@queue_failed) {
 @unlinked = uniq(sort(@unlinked)) if @unlinked;
 @not_unlinked = uniq(sort(@not_unlinked)) if @not_unlinked;
 my @requested = uniq(sort(@ARGV)) if @ARGV;
+
+for (@successful, @basic_error, @queue_failed, @err_usage, @err_script, @err_md5sum, @err_download, @err_noinfo, @err_circular, @err_usr_grp, @err_multilib, @bad_lint, @bad_pkg_lint, @unsupported) {
+	$_ = "$_ $versions{$_} ($build_numbers{$_})";
+}
 
 chomp(my $end_date = `/usr/bin/date`);
 
