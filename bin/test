@@ -14,7 +14,7 @@ use 5.016;
 use strict;
 use warnings;
 
-use SBO::Lib qw/ :config :const auto_reverse build_cmp check_x32 check_x64 check_multilib get_inst_names get_installed_packages get_sbo_build_number get_sbo_version get_user_group user_group_do_not_exist $conf_file get_sbo_location get_sbo_version get_sbo_build_number get_all_available get_build_queue get_full_reverse get_reverse_reqs in is_local lint_sbo_config on_blacklist rationalize_queue series_check slurp solib_check uniq version_cmp error_code usage_error script_error @reverse_concluded $slackbuilds_txt $tmpd /;
+use SBO::Lib qw/ :config :const auto_reverse build_cmp check_x32 check_x64 check_multilib get_inst_names get_installed_packages get_orig_location get_sbo_build_number get_sbo_version get_user_group user_group_do_not_exist $conf_file get_sbo_location get_sbo_version get_sbo_build_number get_all_available get_build_queue get_full_reverse get_reverse_reqs in is_local lint_sbo_config on_blacklist rationalize_queue series_check slurp solib_check uniq version_cmp error_code usage_error script_error $repo_path @reverse_concluded $slackbuilds_txt $tmpd /;
 
 use Cwd;
 use File::Basename;
@@ -34,7 +34,7 @@ our (@to_remove, @to_reuse, %cannot_reuse, @in_overrides, @dry_run_list);
 
 my $multilib_ready = check_multilib();
 
-my ($help, $version, $pkgdir, $sbo_archive, $jobs, $nonet, $single, $full_reverse, $logdir, $archive_rebuild, $strict_upgrades, $dry_run, $no_archive, $archive_force, $archive_reverse, $no_socheck, $test_everything, $niceness, $force);
+my ($help, $version, $pkgdir, $sbo_archive, $jobs, $nonet, $single, $full_reverse, $logdir, $archive_rebuild, $strict_upgrades, $dry_run, $no_archive, $archive_force, $archive_reverse, $no_socheck, $test_everything, $niceness, $force, $series);
 
 my $options_ok = GetOptions(
 	'help|h'              => \$help,
@@ -56,6 +56,7 @@ my $options_ok = GetOptions(
 	'nonet|N=s'           => \$nonet,
 	'niceness|Z=s'        => \$niceness,
 	'force'               => \$force,
+	'series=s'            => \$series,
 );
 
 usage_error("Non-root users can only call sbotest with -h, -v, -D and listing options. Exiting.") unless $< == 0 or $dry_run or $help or $version;
@@ -82,9 +83,11 @@ unless ($options_ok) {
 }
 
 usage_error("full-reverse is incompatible with single. Exiting.") if $single and $full_reverse;
-usage_error("full-reverse is incompatible with test-everything. Exiting.") if $single and $test_everything;
+usage_error("full-reverse is incompatible with test-everything. Exiting.") if $full_reverse and $test_everything;
+usage_error("single is incompatible with test-everything. Exiting.") if $single and $test_everything;
 usage_error("archive-rebuild, no-archive and archive-force are incompatible. Exiting.") if ($archive_rebuild and ($no_archive or $archive_force)) or ($no_archive and $archive_force);
 usage_error("archive-force is incompatible with test-everyhting. Exiting.") if $archive_force and $test_everything;
+usage_erorr("series is incompatible with archive-rebuild, archive-reverse and test-everything.") if $series and ($archive_rebuild or $archive_reverse or $test_everything);
 
 chomp(my $incoming_nice = `/bin/nice`);
 
@@ -92,6 +95,16 @@ if ($test_everything) {
 	$archive_reverse = $test_everything unless $no_archive;
 }
 $archive_rebuild = $archive_reverse if $archive_reverse;
+
+my @series = split ",", $series if $series;
+@series = uniq @series;
+my @bad_series;
+for (@series) { push @bad_series, $_ unless -d "$repo_path/$_"; }
+if (@bad_series) {
+	my $bad_series = join ", ", @bad_series;
+	usage_error("Nonexistent series requested: $bad_series");
+}
+usage_error("series cannot be used with a list of packages.") if @ARGV and @series;
 
 lint_sbo_config($self, %config);
 
@@ -130,7 +143,7 @@ Options:
   --full-reverse|-f:
     test the full reverse dependency tree.
   --force:
-    with mass-testing options, test even if the package is up-to-date.
+    with repo and archive rebuilds, test even if the package is up-to-date.
   --jobs|-j [FALSE|#]:
     set the number of jobs to use, or ignore the JOBS setting.
   --log-dir|-L [FALSE|/path]:
@@ -153,6 +166,8 @@ Options:
     replace outdated packages and their reverse dependencies.
   --test-everything:
     replace outdated packages and reverse dependencies; build all missing.
+  --series [SERIES,...]
+    test everything in one or more series, comma-separated; -s and -f allowed.
   --no-archive:
     do not save or reuse any packages.
   --archive-force:
@@ -467,7 +482,7 @@ sub same_as_repo {
 
 usage_error("sbotools needs to be installed.") unless -x "/usr/sbin/sboconfig";
 usage_error("sbo-maintainer-tools needs to be installed.") unless -x "/usr/bin/sbopkglint";
-show_usage() unless @ARGV or $archive_rebuild or $test_everything;
+show_usage() unless @ARGV or $archive_rebuild or $test_everything or $series;
 
 # reminder if no SLACKBUILDS.TXT
 usage_error("Use \"sbotest pull\" to fetch the repository. Exiting.") unless -s $slackbuilds_txt;
@@ -514,6 +529,19 @@ unless ($dry_run) {
 	make_path($archive_dir) unless -d $archive_dir or $no_archive;
 }
 
+if (@series) {
+	for my $sbo (@available) {
+		my $dir = get_sbo_location($sbo);
+		next unless defined $dir and -d $dir;
+		next if on_blacklist($sbo);
+		my $orig_dir = get_orig_location($sbo);
+		my $check_dir = $orig_dir ? $orig_dir : $dir;
+		my $in_series = basename(dirname $check_dir);
+		next unless in $in_series, @series;
+		push @ARGV, $sbo;
+	}
+}
+
 unless ($single) {
 	$available = +{ map {; $_, $_ } @available };
 	$all_fulldeps = get_reverse_reqs($available);
@@ -530,7 +558,6 @@ FIRST: for my $sbo (@ARGV) {
 		push @missing, $sbo;
 		next FIRST;
 	}
-	chdir $dir;
 	unless(is_supported($dir)) {
 		push @unsupported, $sbo;
 		next FIRST;
@@ -611,7 +638,7 @@ if ($archive_rebuild and -d $archive_dir) {
 			my $queue = get_build_queue([$base]);
 			for my $item (@$queue) {
 				if (in $item, @to_test) {
-					push @to_test, $base;
+					push @to_test, $base if $archive_reverse or auto_reverse($item);
 					last;
 				}
 			}
@@ -640,7 +667,11 @@ if ($archive_rebuild and -d $archive_dir) {
 unless (@to_test) {
 	if ($archive_rebuild) { say "All archived packages installed or up-to-date."; exit; }
 	say "No testing to do.";
-	say ("\nRequested:\n  ", join("\n  ", @ARGV)) unless $archive_rebuild;
+	if (@series) {
+		my $series_string = join ", ", @series;
+		say "\nSeries Build: ($series_string)";
+	}
+	say ("\nRequested:\n  ", join("\n  ", @ARGV)) unless $archive_rebuild or $series;
 	say ("\nUnsupported:\n  ", join("\n  ", @unsupported)) if @unsupported;
 	say ("\nAlready Installed\n  ", join("\n  ", @already_installed)) if @already_installed;
 	say ("\nMissing:\n  ", join("\n  ", @missing)) if @missing;
@@ -988,9 +1019,10 @@ if ($dry_run) {
 
 	say "";
 	my $message = $archive_rebuild ? "Archive Rebuild Dry Run:" : "Dry Run:";
+	$message = $series ? "Series Build Dry Run (" . (join ", ", @series) . "):" : $message;
 	$message = $test_everything ? "Full Repo Test Dry Run:" : $message;
 	say "$message";
-	say ("\nRequested: ", join(" ", @ARGV)) if @ARGV;
+	say ("\nRequested: ", join(" ", @ARGV)) if @ARGV and not $series;
 	say ("\nMissing: ", join(" ", @missing)) if @missing;
 	say ("\nUnsupported: ", join(" ", @unsupported)) if @unsupported;
 	say ("\nAlready Installed: ", join(" ", @already_installed)) if @already_installed;
@@ -1054,7 +1086,11 @@ for (@successful, @basic_error, @queue_failed, @err_usage, @err_script, @err_md5
 chomp(my $end_date = `/usr/bin/date`);
 
 say ("\nAttempted building without network access.") if $config{NONET} eq "TRUE";
-say ("\nRequested:\n  ", join("\n  ", @requested)) if @requested;
+if ($series) {
+	$series =~ s/,/, /g;
+	say ("\nSeries Build ($series)");
+}
+say ("\nRequested:\n  ", join("\n  ", @requested)) if @requested and not $series;
 say ("\nSuccessful:\n  ", join("\n  ", sort @successful)) if @successful;
 say ("\nMissing:\n  ", join("\n  ", sort @missing)) if @missing;
 say ("\nBasic Build Failure:\n  ", join("\n  ", sort @basic_error)) if @basic_error;
@@ -1090,7 +1126,11 @@ my $label = $archive_rebuild ? "Archive update" : "Test";
 say {$fh} "$label began: $start_date";
 say {$fh} "$label ended: $end_date";
 say {$fh} ("\nAttempted building without network access.") if $config{NONET} eq "TRUE";
-say {$fh} ("\nRequested:\n  ", join("\n  ", sort @requested)) if @requested;
+if ($series) {
+	$series =~ s/,/, /g;
+	say ("\nSeries Build ($series)");
+}
+say {$fh} ("\nRequested:\n  ", join("\n  ", sort @requested)) if @requested and not $series;
 say {$fh} ("\nSuccessful:\n  ", join("\n  ", sort @successful)) if @successful;
 say {$fh} ("\nMissing:\n  ", join("\n  ", sort @missing)) if @missing;
 say {$fh} ("\nBasic Build Failure:\n  ", join("\n  ", sort @basic_error)) if @basic_error;
