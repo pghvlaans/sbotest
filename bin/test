@@ -148,6 +148,8 @@ Options:
     replace all outdated packages in the archive.
   --archive-reverse:
     replace outdated packages and their reverse dependencies.
+  --test-everything:
+    replace outdated packages and reverse dependencies; build all missing.
   --no-archive:
     do not save or reuse any packages.
   --archive-force:
