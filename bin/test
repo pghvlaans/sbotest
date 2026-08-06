@@ -34,7 +34,7 @@ our (@to_remove, @to_reuse, %cannot_reuse, @in_overrides, @dry_run_list);
 
 my $multilib_ready = check_multilib();
 
-my ($help, $version, $pkgdir, $sbo_archive, $jobs, $nonet, $single, $full_reverse, $logdir, $archive_rebuild, $strict_upgrades, $dry_run, $no_archive, $archive_force, $archive_reverse, $no_socheck, $test_everything, $niceness);
+my ($help, $version, $pkgdir, $sbo_archive, $jobs, $nonet, $single, $full_reverse, $logdir, $archive_rebuild, $strict_upgrades, $dry_run, $no_archive, $archive_force, $archive_reverse, $no_socheck, $test_everything, $niceness, $force);
 
 my $options_ok = GetOptions(
 	'help|h'              => \$help,
@@ -55,6 +55,7 @@ my $options_ok = GetOptions(
 	'no-socheck|X=s'      => \$no_socheck,
 	'nonet|N=s'           => \$nonet,
 	'niceness|Z=s'        => \$niceness,
+	'force'               => \$force,
 );
 
 usage_error("Non-root users can only call sbotest with -h, -v, -D and listing options. Exiting.") unless $< == 0 or $dry_run or $help or $version;
@@ -128,6 +129,8 @@ Options:
     report on potential operations.
   --full-reverse|-f:
     test the full reverse dependency tree.
+  --force:
+    with mass-testing options, test even if the package is up-to-date.
   --jobs|-j [FALSE|#]:
     set the number of jobs to use, or ignore the JOBS setting.
   --log-dir|-L [FALSE|/path]:
@@ -568,6 +571,7 @@ if (-d $archive_dir and not $no_archive) {
 if ($archive_rebuild and -d $archive_dir) {
 	print "Getting an initial test queue...\n";
 	@to_test = find_outdated($archive_dir);
+	@to_test = @archived_names if $force;
 	if ($test_everything) {
 		for my $sbo (@available) {
 			my $dir = get_sbo_location($sbo);
@@ -577,7 +581,7 @@ if ($archive_rebuild and -d $archive_dir) {
 				push @unsupported, $sbo;
 				next;
 			}
-			next if in $sbo, @up_to_date;
+			unless ($force) { next if in $sbo, @up_to_date; }
 			if (in $sbo, @$inst_sbos) {
 				push @already_installed, $sbo;
 				next;

@@ -15,6 +15,7 @@ See the man page for more information about options and settings!
   * Account for the new NICENESS setting; add --niceness
     * Thanks to shamefulCake1 for the sbotools request
   * Show version and build number in the results summary where appropriate
+  * bin/test: Add a --force option to rebuild up-to-date packages with mass testing options
 
 #### 1.2.3 - 2026-07-31
   * Compatibility bump

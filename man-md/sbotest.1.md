@@ -32,13 +32,13 @@
             sbo_name (sbo_name)
 
     sbotest [-Al /path|FALSE] [-NSX TRUE|FALSE] [-Zj #|FALSE] \
-            [-D] --archive-rebuild
+            [-D] [--force] --archive-rebuild
 
     sbotest [-Al /path|FALSE] [-NSX TRUE|FALSE] [-Zj #|FALSE] \
-            [-D] --archive-reverse
+            [-D] [--force] --archive-reverse
 
     sbotest [-Al /path|FALSE] [-NSX TRUE|FALSE] [-Zj #|FALSE] \
-            [--no-archive|--archive-force] --test-everything
+            [--no-archive|--archive-force] [--force] --test-everything
 
 ## DISCLAIMER
 
@@ -148,6 +148,8 @@ blacklisted packages are ignored. If **STRICT_UPGRADES** is **TRUE**,
 only mismatched packages with lower version or build numbers are removed
 from the archive.
 
+To rebuild even up-to-date packages, use the **\--force** option.
+
 If a script to be rebuilt has an automatic reverse dependency rebuild
 request in */etc/sbotest/sbotest.hints*, its reverse dependencies are
 rebuilt and replaced as well. See [sbotools.hints(5)](sbotools.hints.5.md) for details
@@ -194,6 +196,12 @@ report archived packages to be removed.
 Test all reverse dependencies for the requested scripts rather than the
 first level only. Use **sbotest find \--all-reverse** or pass
 **\--dry-run** to see which scripts would be tested, if compatible.
+
+**\--force**
+
+Pass together with a mass testing option (including
+**\--test-everything**, **\--archive-rebuild** and
+**\--archive-reverse**) to rebuild up-to-date packages as well.
 
 **-s\|\--single**
 
@@ -257,10 +265,11 @@ Overrides the **NICENESS** setting.
 
 **\--test-everything**
 
-Perform a full-repository test, respecting the blacklist. All packages
-are rebuilt, except for those that are unsupported or archived and
-up-to-date. Unless running with **\--no-archive**, ensure that the
-package archive directory exists before running.
+Perform a full-repository test, respecting the blacklist. All archived
+packages are rebuilt, except for those that are unsupported up-to-date.
+Use **\--force** to rebuild up-to-date packages as well. Unless running
+with **\--no-archive**, ensure that the package archive directory exists
+before running.
 
 Please note that archived reverse dependencies of outdated packages are
 rebuilt regardless of whether they are up-to-date.
