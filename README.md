@@ -10,7 +10,7 @@ See the man page for more information about options and settings!
 
 ## Most Recent Changes
 
-#### Post-Release
+#### 1.3 - 2026-08-07
   * Compatibility bump
   * Account for the new NICENESS setting; add --niceness
     * Thanks to shamefulCake1 for the sbotools request
@@ -38,19 +38,6 @@ See the man page for more information about options and settings!
   * Compatibility bump for new SBO::Lib::Readme user and group handling
   * bin/test: Show useradd and groupadd commands as they are performed
   * bin/test: Unlink outdated packages in archive unless the new build fails
-
-#### 1.2 - 2025-11-20
-  * bin/test: Use the perl, python and ruby package tests in case of failure
-  * bin/test: Better protections for non-SBO packages
-  * bin/test: Exit with invalid options
-  * bin/wrapper: Running without options is handled better
-  * bin/test: Properly rationalize the queue with --archive-rebuild
-  * bin/test: Add --test-everything
-    * Thanks to dchmelik for the feedback.
-  * bin/test: Attempt to optimize test queues to reduce the number of package installations and removals
-  * Compatibility bump for new SBO::Lib::Build queue handling
-  * bin/test: Untargeted scripts in the queue also get a clean-build environment
-  * bin/test: Unlink outdated packages in the archive only once all builds succeed
 
 ## Getting sbotest
 
