@@ -14,7 +14,7 @@ use 5.016;
 use strict;
 use warnings;
 
-use SBO::Lib qw/ :config :const auto_reverse build_cmp check_x32 check_x64 check_multilib get_inst_names get_installed_packages get_orig_location get_sbo_build_number get_sbo_version get_user_group user_group_do_not_exist $conf_file get_sbo_location get_sbo_version get_sbo_build_number get_all_available get_build_queue get_full_reverse get_reverse_reqs in is_local lint_sbo_config on_blacklist rationalize_queue series_check slurp solib_check uniq version_cmp error_code usage_error script_error $repo_path @reverse_concluded $slackbuilds_txt $tmpd /;
+use SBO::Lib qw/ :config :const auto_reverse build_cmp check_x32 check_x64 check_multilib get_inst_names get_installed_packages get_orig_location get_sbo_build_number get_sbo_version get_user_group user_group_do_not_exist $conf_file get_sbo_location get_sbo_version get_sbo_build_number get_all_available get_build_queue get_full_reverse get_reverse_reqs in is_local lint_sbo_config merge_queues on_blacklist rationalize_queue series_check slurp solib_check uniq version_cmp error_code usage_error script_error $repo_path @reverse_concluded $slackbuilds_txt $tmpd /;
 
 use Cwd;
 use File::Basename;
@@ -30,7 +30,7 @@ my $self = "sbotest";
 usage_error("The installed sbotools version is incompatible.\n\nUpgrade to 4.1.4 or 20260506_de7f512 at the earliest. Exiting.") unless defined $sbotest_compatible;
 
 # for --dry-run
-our (@to_remove, @to_reuse, %cannot_reuse, @in_overrides, @dry_run_list);
+our (@to_remove, @to_reuse, %to_reuse, %cannot_reuse, @in_overrides, @dry_run_list);
 
 my $multilib_ready = check_multilib();
 
@@ -307,25 +307,14 @@ sub install_archived {
 	# being queued up and built one after another
 	while (my $ls = readdir $dh) {
 		next if exists $cannot_reuse{$ls};
+		next if exists $to_reuse{$ls};
 		my ($pkg_name, $pkg_version, $pkg_build) = get_package_info($ls);
 		unless (defined $pkg_name) {
 			$cannot_reuse{$ls} = 1 if $dry_run;
 			next;
 		}
 		next unless in $pkg_name, @$queue;
-		unless (-f $ls) {
-			$cannot_reuse{$ls} = 1 if $dry_run;
-			next;
-		}
-		if (-f "$pkg_dir/$ls") {
-			$cannot_reuse{$ls} = 1 if $dry_run;
-			next;
-		}
 		unless (same_as_repo($pkg_name, $pkg_version, $pkg_build)) {
-			$cannot_reuse{$ls} = 1 if $dry_run;
-			next;
-		}
-		if (in $pkg_name, @$currently_installed) {
 			$cannot_reuse{$ls} = 1 if $dry_run;
 			next;
 		}
@@ -333,7 +322,17 @@ sub install_archived {
 			$cannot_reuse{$ls} = 1 if $dry_run;
 			next;
 		}
+		if (in $pkg_name, @$currently_installed) {
+			$cannot_reuse{$ls} = 1 if $dry_run;
+			next;
+		}
+		next if not $dry_run and -f "$pkg_dir/$ls";
+		unless (-f $ls) {
+			$cannot_reuse{$ls} = 1 if $dry_run;
+			next;
+		}
 		if ($dry_run) {
+			$to_reuse{$ls} = 1;
 			push @to_reuse, $ls;
 		} else {
 			chomp(my $check_nice = `/bin/nice`);
@@ -370,6 +369,7 @@ sub is_supported {
 sub optimize_queue {
 	script_error("optimize_queue requires four arguments.") unless @_ == 4;
 	my ($queue, $weight, $index, $cutoff) = @_;
+	script_error("\$index must be 0 or -1.") unless $index == 0 or $index == -1;
 	my (%enqueued, %sbo_queues, %optimized, @reqs_queue, %have_requirements, @optimized_queue);
 	my $cumulative = 0;
 	while (my $sbo = shift @$queue) {
@@ -390,42 +390,35 @@ sub optimize_queue {
 	OPTIMIZE: while (my $sbo = shift @reqs_queue) {
 		next if exists $optimized{$sbo};
 		for my $req (@{$sbo_queues{$sbo}}) {
-			if (exists $have_requirements{$req}) {
-				unless (exists $optimized{$req}) {
-					push @reqs_queue, $sbo;
-					next OPTIMIZE;
-				}
+			if (exists $have_requirements{$req} and not exists $optimized{$req}) {
+				push @reqs_queue, $sbo;
+				next OPTIMIZE;
 			}
 		}
 		$optimized{$sbo} = 1;
 		push @optimized_queue, $sbo;
-		$cumulative += @{$sbo_queues{$sbo}} unless $cumulative;
+		$cumulative = $cumulative ? $cumulative : @{$sbo_queues{$sbo}};
 		my (@min_scores, @min_indices, %scores, %unweighted_scores);
 		my $min_score = 100000000;
 		my $reqs_index = -1;
 		CANDS: for my $cand (@reqs_queue) {
 			$reqs_index++;
 			next if exists $optimized{$cand};
+			my ($score, $unweighted_score);
 			for my $req (@{$sbo_queues{$cand}}) {
-				if (exists $have_requirements{$req}) {
-					next CANDS unless exists $optimized{$req};
-				}
-			}
-			my $score = 0;
-			my $unweighted_score = 0;
-			for my $req (@{$sbo_queues{$cand}}) {
+				next CANDS if exists $have_requirements{$req} and not exists $optimized{$req};
 				unless (exists $enqueued{$sbo}->{$req}) {
 					$score++;
+					next CANDS if $score > $min_score;
 					$unweighted_score++;
 				}
-				next CANDS if $score > $min_score;
 			}
 			for my $req (@{$sbo_queues{$sbo}}) {
 				unless (exists $enqueued{$cand}->{$req}) {
 					$score += $weight;
+					next CANDS if $score > $min_score;
 					$unweighted_score++;
 				}
-				next CANDS if $score > $min_score;
 			}
 			unless ($score) {
 				splice @reqs_queue, $reqs_index, 1;
@@ -444,14 +437,13 @@ sub optimize_queue {
 			}
 		}
 		if (@min_scores) {
-			my $use_index = $index < @min_scores ? $index : -1;
-			splice @reqs_queue, $min_indices[$use_index], 1;
-			unshift @reqs_queue, $min_scores[$use_index];
-			$cumulative += $unweighted_scores{$min_scores[$use_index]};
-			return ([ @optimized_queue ], $cumulative) if $cutoff < $cumulative;
+			splice @reqs_queue, $min_indices[$index], 1;
+			unshift @reqs_queue, $min_scores[$index];
+			$cumulative += $unweighted_scores{$min_scores[$index]};
 		} else {
 			$cumulative += @{$sbo_queues{$sbo}};
 		}
+		return ([ @optimized_queue ], $cumulative) if $cutoff < $cumulative;
 	}
 	return ([ @optimized_queue ], $cumulative);
 }
@@ -784,14 +776,34 @@ if (@grand_queue > 1) {
 				$weight = $weight_3;
 				@grand_queue = @{ $grand_queue_3_back };
 			}
-			print "  Done. Package removal avoidance factor of $weight.\n";
+			print "Done. Package removal avoidance factor of $weight.\n";
 			last;
 		}
 	}
 }
 @rebuild_target = uniq(@rebuild_target) if @rebuild_target;
 
+if ($dry_run) {
+	my $dry_run_queue;
+	DRY_RUN: for my $sbo (@grand_queue) {
+		my $dir = get_sbo_location($sbo);
+		unless (is_supported($dir)) {
+			push @unsupported, $sbo;
+			next DRY_RUN;
+		}
+		next DRY_RUN if on_blacklist($sbo);
+		push @dry_run_list, $sbo if in $sbo, @to_test;
+		my $queue = get_build_queue([$sbo]);
+		for my $cand (@$queue) {
+			push @in_overrides, $cand if is_local($cand);
+		}
+		$dry_run_queue = merge_queues($dry_run_queue, $queue) unless $no_archive or $pkg_dir eq $archive_dir or ($force and $archive_rebuild);
+	}
+	install_archived($dry_run_queue, $archive_dir, $pkg_dir, @to_test) unless $no_archive or $pkg_dir eq $archive_dir or ($force and $archive_rebuild);
+}
+
 SECOND: for my $sbo (@grand_queue) {
+	last if $dry_run;
 	my $dir = get_sbo_location($sbo);
 	# skip if unsupported
 	unless (is_supported($dir)) {
@@ -805,16 +817,7 @@ SECOND: for my $sbo (@grand_queue) {
 	my $queue = get_build_queue([$sbo]);
 	chdir $dir;
 	clean_packages($queue) unless $dry_run;
-	install_archived($queue, $archive_dir, $pkg_dir, @to_test) unless $no_archive or $pkg_dir eq $archive_dir;
-	if ($dry_run) {
-		for my $cand (@$queue) {
-			push @in_overrides, $cand if is_local($cand) and not in $cand, @to_reuse;
-		}
-	}
-	# nothing past this point is needed in
-	# --dry-run
-	push @dry_run_list, $sbo if in $sbo, @to_test;
-	next SECOND if $dry_run;
+	install_archived($queue, $archive_dir, $pkg_dir, @to_test) unless $dry_run or $no_archive or $pkg_dir eq $archive_dir or ($force and $archive_rebuild);
 	push @bad_lint, $sbo unless system('sbolint') == 0;
 	# reinstall anything already built on this
 	# test run...
