@@ -14,7 +14,7 @@ use 5.016;
 use strict;
 use warnings;
 
-use SBO::Lib qw/ :config :const auto_reverse build_cmp check_x32 check_x64 check_multilib get_inst_names get_installed_packages get_orig_location get_sbo_build_number get_sbo_version get_user_group user_group_do_not_exist $conf_file get_sbo_location get_sbo_version get_sbo_build_number get_all_available get_build_queue get_full_reverse get_reverse_reqs in is_local lint_sbo_config merge_queues on_blacklist rationalize_queue series_check slurp solib_check uniq version_cmp error_code usage_error script_error $repo_path @reverse_concluded $slackbuilds_txt $tmpd /;
+use SBO::Lib qw/ :config :const auto_reverse build_cmp check_x32 check_x64 check_multilib get_inst_names get_installed_packages get_orig_location get_sbo_build_number get_sbo_version get_user_group user_group_do_not_exist $conf_file get_sbo_location get_sbo_version get_sbo_build_number get_all_available get_build_queue get_full_reverse get_reverse_reqs in is_local lint_sbo_config merge_queues on_blacklist rationalize_queue read_ionice series_check set_ionice slurp solib_check uniq version_cmp error_code usage_error script_error $repo_path @reverse_concluded $slackbuilds_txt $tmpd /;
 
 use Cwd;
 use File::Basename;
@@ -34,7 +34,7 @@ our (@to_remove, @to_reuse, %to_reuse, %cannot_reuse, @in_overrides, @dry_run_li
 
 my $multilib_ready = check_multilib();
 
-my ($help, $version, $pkgdir, $sbo_archive, $jobs, $nonet, $single, $full_reverse, $logdir, $archive_rebuild, $strict_upgrades, $dry_run, $no_archive, $archive_force, $archive_reverse, $no_socheck, $test_everything, $niceness, $force, $series);
+my ($help, $version, $pkgdir, $sbo_archive, $jobs, $nonet, $single, $full_reverse, $logdir, $archive_rebuild, $strict_upgrades, $dry_run, $no_archive, $archive_force, $archive_reverse, $no_socheck, $test_everything, $niceness, $force, $series, $idle_build);
 
 my $options_ok = GetOptions(
 	'help|h'              => \$help,
@@ -57,6 +57,7 @@ my $options_ok = GetOptions(
 	'niceness|Z=s'        => \$niceness,
 	'force'               => \$force,
 	'series=s'            => \$series,
+	'idle-build|Y=s'      => \$idle_build,
 );
 
 usage_error("Non-root users can only call sbotest with -h, -v, -D and listing options. Exiting.") unless $< == 0 or $dry_run or $help or $version;
@@ -71,6 +72,7 @@ $config{STRICT_UPGRADES} = defined $strict_upgrades ? $strict_upgrades : $config
 $config{NO_SOCHECK} = defined $no_socheck ? $no_socheck : $config{NO_SOCHECK};
 $config{NONET} = defined $nonet ? $nonet : $config{NONET};
 $config{NICENESS} = defined $niceness ? $niceness : $config{NICENESS};
+$config{IDLE_BUILD} = defined $idle_build ? $idle_build : $config{IDLE_BUILD};
 
 if ($help) {
 	show_usage();
@@ -90,6 +92,7 @@ usage_error("archive-force is incompatible with test-everyhting. Exiting.") if $
 usage_erorr("series is incompatible with archive-rebuild, archive-reverse and test-everything.") if $series and ($archive_rebuild or $archive_reverse or $test_everything);
 
 chomp(my $incoming_nice = `/bin/nice`);
+my @incoming_ionice = read_ionice();
 
 if ($test_everything) {
 	$archive_reverse = $test_everything unless $no_archive;
@@ -201,9 +204,16 @@ sub clean_packages {
 		if (defined $queue) { next if in $sbo, @$queue; }
 		chomp(my $check_nice = `/bin/nice`);
 		$config{NICENESS} = $check_nice == $incoming_nice ? $config{NICENESS} : "FALSE";
-		if ($config{NICENESS} ne "FALSE") {
+		my @check_ionice = read_ionice();
+		$config{IDLE_BUILD} = $check_ionice[0] == $incoming_ionice[0] && $check_ionice[1] == $incoming_ionice[1] ? $config{IDLE_BUILD} : "FALSE";
+		if ($config{NICENESS} ne "FALSE" and $config{IDLE_BUILD} eq "FALSE") {
 			my $nice_diff = $config{NICENESS} - $check_nice;
 			script_error("removepkg failed.") unless system('/bin/nice', '-n', $nice_diff, '/sbin/removepkg', '--terse', $sbo) == 0;
+		} elsif ($config{NICENESS} eq "FALSE" and $config{IDLE_BUILD} ne "FALSE") {
+			script_error("removepkg failed.") unless system('/usr/bin/ionice', '-c', '3', '/sbin/removepkg', '--terse', $sbo) == 0;
+		} elsif ($config{NICENESS} ne "FALSE" and $config{IDLE_BUILD} ne "FALSE") {
+			my $nice_diff = $config{NICENESS} - $check_nice;
+			script_error("removepkg failed.") unless system('/usr/bin/ionice', '-c', '3', '/bin/nice', '-n', $nice_diff, '/sbin/removepkg', '--terse', $sbo) == 0;
 		} else {
 			script_error("removepkg failed.") unless system('/sbin/removepkg', '--terse', $sbo) == 0;
 		}
@@ -337,9 +347,16 @@ sub install_archived {
 		} else {
 			chomp(my $check_nice = `/bin/nice`);
 			$config{NICENESS} = $check_nice == $incoming_nice ? $config{NICENESS} : "FALSE";
-			if ($config{NICENESS} ne "FALSE") {
+			my @check_ionice = read_ionice();
+			$config{IDLE_BUILD} = $check_ionice[0] == $incoming_ionice[0] && $check_ionice[1] == $incoming_ionice[1] ? $config{IDLE_BUILD} : "FALSE";
+			if ($config{NICENESS} ne "FALSE" and $config{IDLE_BUILD} eq "FALSE") {
 				my $nice_diff = $config{NICENESS} - $check_nice;
 				script_error("upgradepkg failed.") unless system('/bin/nice', '-n', $nice_diff, '/sbin/upgradepkg', '--reinstall', '--install-new', '--terse', $ls) == 0;
+			} elsif ($config{NICENESS} eq "FALSE" and $config{IDLE_BUILD} ne "FALSE") {
+				script_error("upgradepkg failed.") unless system('/usr/bin/ionice', '-c', '3', '/sbin/upgradepkg', '--reinstall', '--install-new', '--terse', $ls) == 0;
+			} elsif ($config{NICENESS} ne "FALSE" and $config{IDLE_BUILD} ne "FALSE") {
+				my $nice_diff = $config{NICENESS} - $check_nice;
+				script_error("upgradepkg failed.") unless system('/usr/bin/ionice', '-c', '3', '/bin/nice', '-n', $nice_diff, '/sbin/upgradepkg', '--reinstall', '--install-new', '--terse', $ls) == 0;
 			} else {
 				script_error("upgradepkg failed.") unless system('/sbin/upgradepkg', '--reinstall', '--install-new', '--terse', $ls) == 0;
 			}
@@ -845,9 +862,16 @@ SECOND: for my $sbo (@grand_queue) {
 			next REINSTALL if in $script_name, @$currently_installed or (in $script_name, @rebuild_target and not in $script_name, @built);
 			chomp(my $check_nice = `/bin/nice`);
 			$config{NICENESS} = $check_nice == $incoming_nice ? $config{NICENESS} : "FALSE";
-			if ($config{NICENESS} ne "FALSE") {
+			my @check_ionice = read_ionice();
+			$config{IDLE_BUILD} = $check_ionice[0] == $incoming_ionice[0] && $check_ionice[1] == $incoming_ionice[1] ? $config{IDLE_BUILD} : "FALSE";
+			if ($config{NICENESS} ne "FALSE" and $config{IDLE_BUILD} eq "FALSE") {
 				my $nice_diff = $config{NICENESS} - $check_nice;
 				script_error("upgradepkg failed.") unless system('/bin/nice', '-n', $nice_diff, '/sbin/upgradepkg', '--reinstall', '--install-new', '--terse', $script) == 0;
+			} elsif ($config{NICENESS} eq "FALSE" and $config{IDLE_BUILD} ne "FALSE") {
+				script_error("upgradepkg failed.") unless system('/usr/bin/ionice', '-c', '3', '/sbin/upgradepkg', '--reinstall', '--install-new', '--terse', $script) == 0;
+			} elsif ($config{NICENESS} ne "FALSE" and $config{IDLE_BUILD} ne "FALSE") {
+				my $nice_diff = $config{NICENESS} - $check_nice;
+				script_error("upgradepkg failed.") unless system('/usr/bin/ionice', '-c', '3', '/bin/nice', '-n', $nice_diff, '/sbin/upgradepkg', '--reinstall', '--install-new', '--terse', $script) == 0;
 			} else {
 				script_error("upgradepkg failed.") unless system('/sbin/upgradepkg', '--reinstall', '--install-new', '--terse', $script) == 0;
 			}
@@ -889,7 +913,9 @@ SECOND: for my $sbo (@grand_queue) {
 	unlink $sboinstall_res if -f $sboinstall_res;
 	chomp(my $check_nice = `/bin/nice`);
 	$config{NICENESS} = $check_nice == $incoming_nice ? $config{NICENESS} : "FALSE";
-	my $cmd = "sboinstall -oirR -L $log_dir -k $pkg_dir -N $config{NONET} $sbo -Z $config{NICENESS}";
+	my @check_ionice = read_ionice();
+	$config{IDLE_BUILD} = $check_ionice[0] == $incoming_ionice[0] && $check_ionice[1] == $incoming_ionice[1] ? $config{IDLE_BUILD} : "FALSE";
+	my $cmd = "sboinstall -oirR -L $log_dir -k $pkg_dir -N $config{NONET} $sbo -Z $config{NICENESS} -Y $config{IDLE_BUILD}";
 	$cmd = $single ? $cmd . " --reinstall" : $cmd;
 	$cmd .= " ; echo \$? > $sboinstall_res";
 	system($cmd);

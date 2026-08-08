@@ -10,6 +10,11 @@ See the man page for more information about options and settings!
 
 ## Most Recent Changes
 
+#### Post-Release
+  * Compatibility bump
+  * Account for the new IDLE_BUILD setting; add --idle-build
+    * Thanks to shamefulCake1 for the sbotools request
+
 #### 1.3 - 2026-08-07
   * Compatibility bump
   * Account for the new NICENESS setting; add --niceness
@@ -45,7 +50,7 @@ A SlackBuild is [available](https://slackbuilds.org/repository/15.0/system/sbote
 
 To use a development version:
 
-* Use **[sbotools-git-slackbuild](https://github.com/pghvlaans/sbotools-git-slackbuild/)** to upgrade **sbotools** to version `20260804_9edbaa0` at the oldest.
+* Use **[sbotools-git-slackbuild](https://github.com/pghvlaans/sbotools-git-slackbuild/)** to upgrade **sbotools** to version `20260809_92a0b0e` at the oldest.
 * Clone the **sbotest** repository.
 * Run `./tools/source_to_slackbuild.sh` from the root of the local repository.
 * Run the SlackBuild in `slackbuild/sbotest`.

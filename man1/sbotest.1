@@ -13,19 +13,19 @@ sbotest pull [-B BRANCH|FALSE] [-r URL|FALSE]
 sbotest [config|find|hints] ...
 .P
 sbotest [-f|-s] [-Akl /path|FALSE] [-Zj #|FALSE] \\
-        [-NX TRUE|FALSE] [-D] [--no-archive|--archive-force] \\
+        [-NSXY TRUE|FALSE] [-D] [--no-archive|--archive-force] \\
         sbo_name (sbo_name)
 .P
-sbotest [-Al /path|FALSE] [-NX TRUE|FALSE] [-Zj #|FALSE] \\
+sbotest [-Al /path|FALSE] [-NSXY TRUE|FALSE] [-Zj #|FALSE] \\
         [--no-archive|--archive-force] --series SERIES[,SERIES]
 .P
-sbotest [-Al /path|FALSE] [-NSX TRUE|FALSE] [-Zj #|FALSE] \\
+sbotest [-Al /path|FALSE] [-NSXY TRUE|FALSE] [-Zj #|FALSE] \\
         [-D] [--force] --archive-rebuild
 .P
-sbotest [-Al /path|FALSE] [-NSX TRUE|FALSE] [-Zj #|FALSE] \\
+sbotest [-Al /path|FALSE] [-NSXY TRUE|FALSE] [-Zj #|FALSE] \\
         [-D] [--force] --archive-reverse
 .P
-sbotest [-Al /path|FALSE] [-NSX TRUE|FALSE] [-Zj #|FALSE] \\
+sbotest [-Al /path|FALSE] [-NSXY TRUE|FALSE] [-Zj #|FALSE] \\
         [--no-archive|--archive-force] [--force] --test-everything
 .SH DISCLAIMER
 .P
@@ -609,6 +609,33 @@ the setting in
 .RE
 .P
 .B
+-Y|--idle-build (FALSE|TRUE)
+.RS
+If
+.B
+TRUE\fR\
+\&, use the
+.I
+idle
+IO priority class for
+.B
+sbotest
+child processes when building and installng packages. If
+.B
+FALSE\fR\
+\&, use the incoming
+.B
+ionice(1)
+settings, generally class
+.I
+none\fR\
+\&. See
+.B
+ionice(1)
+for more information.
+.RE
+.P
+.B
 -Z|--niceness (FALSE|-20..19)
 .RS
 If set to a
@@ -1051,7 +1078,7 @@ None known. If found, Issues and Pull Requests to
 are always welcome.
 .SH SEE ALSO
 .P
-sboconfig(1), sbofind(1), sbohints(1), sboinstall(1), sbotools.conf(5), sbotools.hints(5), SBO::Lib(3), SBO::Lib::Build(3), SBO::Lib::Info(3), SBO::Lib::Pkgs(3), SBO::Lib::Repo(3), SBO::Lib::Solibs(3), SBO::Lib::Tree(3), SBO::Lib::Util(3), sbolint(1), sbopkglint(1)
+sboconfig(1), sbofind(1), sbohints(1), sboinstall(1), sbotools.conf(5), sbotools.hints(5), SBO::Lib(3), SBO::Lib::Build(3), SBO::Lib::Info(3), SBO::Lib::Pkgs(3), SBO::Lib::Repo(3), SBO::Lib::Solibs(3), SBO::Lib::Tree(3), SBO::Lib::Util(3), sbolint(1), sbopkglint(1), ionice(1)
 .SH ACKNOWLEDGMENTS
 .B
 Jacob Pipkin\fR\
