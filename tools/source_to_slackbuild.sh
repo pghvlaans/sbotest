@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 # Make sbotest-*.tar.gz and put it in the slackbuild/sbotest
 # directory to build a packge.
@@ -6,8 +6,8 @@
 SBOROOT="$(pwd)"
 PWB="$(basename "$SBOROOT")"
 
-if [ ! -d "./man1" ] || [ "$PWB" != "sbotest" ]; then
-  echo "Run version.sh from the root sbotest directory."
+if [ ! -d "./man1" ] || [ "$PWB" != "sbotest" ] || [ ! -d "./slackbuild/sbotest" ]; then
+  echo "Run source_to_slackbuild.sh from the root sbotest directory."
   exit 1
 fi
 
