@@ -10,7 +10,7 @@ See the man page for more information about options and settings!
 
 ## Most Recent Changes
 
-#### Post-Release
+#### 1.3.1 - 2026-08-13
   * Compatibility bump
   * Account for the new IDLE_BUILD setting; add --idle-build
     * Thanks to shamefulCake1 for the sbotools request
@@ -35,15 +35,6 @@ See the man page for more information about options and settings!
 #### 1.2.2 - 2026-05-06
   * Account for the new NONET setting
   * Compatibility bump
-
-#### 1.2.1 - 2025-12-26
-  * bin/test: Do not reuse log and test directories if called more than once in the same minute
-  * bin/test: Use a separate $TMP directory for each script
-  * bin/test: Run sbopkglint as packages are built, not at the end
-  * bin/test: Report failed builds with more specific error types
-  * Compatibility bump for new SBO::Lib::Readme user and group handling
-  * bin/test: Show useradd and groupadd commands as they are performed
-  * bin/test: Unlink outdated packages in archive unless the new build fails
 
 ## Getting sbotest
 
