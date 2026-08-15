@@ -1,3 +1,4 @@
 *.swp
 *.un~
-*.tar.gz
+**/*.tar.gz
+**/*.tar
