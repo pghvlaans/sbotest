@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# Make sbotest.tar and put it in the root sbotools directory
-# directory for submission to SBo.
+# Make sbotest.tar and put it in the root sbotest directory
+# for submission to SBo.
 
 # Run only after the new version has been uploaded to the website.
 
